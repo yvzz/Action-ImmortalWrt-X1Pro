@@ -1,7 +1,7 @@
 [定制教程](https://xiabee.eu.org/customize.html) | [刷写教程](https://xiabee.eu.org/install.html)
 
 <div align=center>
-<img src="tr3000.png" height=200px align="center">
+<img src="x1pro.png" height=200px align="center">
 </div>
 
 ---
