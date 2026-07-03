@@ -250,30 +250,8 @@ jobs:
               "X1Pro") CONFIG="config/X1Pro.config" ;;
             esac
 
-            # X1Pro 切换到专用 DIY 脚本
-            if [ "$DEV" = "X1Pro" ]; then
-              DIY_P1="$GITHUB_WORKSPACE/diy-part1-x1pro.sh"
-              DIY_P2="$GITHUB_WORKSPACE/diy-part2-x1pro.sh"
-            else
-              DIY_P1="$GITHUB_WORKSPACE/diy-part1.sh"
-              DIY_P2="$GITHUB_WORKSPACE/diy-part2.sh"
-            fi
-
-            # 执行 DIY Part 1
-            echo "执行 DIY Part 1 for $DEV..."
-            chmod +x "$DIY_P1"
-            "$DIY_P1"
-
-            # 执行 feeds update/install（全局已执行过，此处仅确保 X1Pro 自定义包存在）
-            if [ "$DEV" = "X1Pro" ]; then
-              echo "安装 X1Pro 额外主题包..."
-              ./scripts/feeds install -a
-            fi
-
-            # 执行 DIY Part 2
-            echo "执行 DIY Part 2 for $DEV..."
-            chmod +x "$DIY_P2"
-            "$DIY_P2"
+            # 使用统一的 DIY 脚本（已合并 X1Pro 支持到 diy-part1.sh）
+            echo "配置设备: $DEV (Config: $CONFIG)"
             
             echo "Using Config: $CONFIG"
             

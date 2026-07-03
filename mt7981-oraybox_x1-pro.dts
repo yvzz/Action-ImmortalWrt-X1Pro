@@ -251,12 +251,7 @@
 		};
 	};
 
-	mdio_pins: mdio-pins {
-		mux {
-			function = "mdio";
-			groups = "mdio";
-		};
-	};
+	// mdio_pins 已由 mt7981.dtsi 提供，此处不重复定义
 };
 
 &usb_phy {
