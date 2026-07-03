@@ -8,7 +8,7 @@
 
 ## immortalwrt 源码
 
-编译自 https://github.com/padavanonly/immortalwrt-mt798x-6.6 ，兼容 Cudy Tr3000 128M 新 flash
+编译自 https://github.com/padavanonly/immortalwrt-mt798x-6.6 ，兼容 Oray X1 Pro 128M flash
 
 ---
 
