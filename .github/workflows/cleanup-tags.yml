@@ -1,0 +1,45 @@
+name: Cleanup Orphan Tags
+
+on:
+  workflow_dispatch:
+
+jobs:
+  delete:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Delete orphan tags
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          REPO=${{ github.repository }}
+          echo "获取所有 Remote Tag..."
+          remote_tags=$(gh api repos/$REPO/tags --jq '.[].name' 2>/dev/null)
+
+          if [ -z "$remote_tags" ]; then
+            echo "没有 Tag"
+            exit 0
+          fi
+
+          deleted=0
+          for tag in $remote_tags; do
+            # 检查是否还有关联的 Release
+            release=$(gh release view "$tag" --json tagName --jq '.tagName' 2>/dev/null || true)
+            if [ -z "$release" ]; then
+              echo "  删除孤立 Tag: $tag"
+              gh api --method DELETE "repos/$REPO/git/refs/tags/$tag"
+              deleted=$((deleted + 1))
+            else
+              echo "  保留 (有 Release): $tag"
+            fi
+          done
+
+          echo ""
+          echo "完成: 删除 ${deleted} 个孤立 Tag"
