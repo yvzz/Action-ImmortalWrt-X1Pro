@@ -210,7 +210,7 @@
 			};
 
 			ubi: partition@800000 {
-				label = "ubi_0";
+				label = "ubi";
 				compatible = "linux,ubi";
 				reg = <0x800000 0x7000000>;
 			};
