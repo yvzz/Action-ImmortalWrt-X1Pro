@@ -12,8 +12,9 @@
 #include "mt7981.dtsi"
 
 / {
-	model = "Oray X1 Pro";
-	compatible = "oray,x1_pro", "mediatek,mt7981";
+	model = "oraybox_x1-pro";
+	compatible = "mediatek,mt7981", "mediatek,mt7981-rfb";
+
 
 	aliases {
 		label-mac-device = &gmac1;
