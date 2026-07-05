@@ -180,15 +180,15 @@
 				};
 			};
 
-			partition@380000 {
+			partition@3c0000 {
 				label = "FIP";
-				reg = <0x380000 0x200000>;
+				reg = <0x3c0000 0x200000>;
 				read-only;
 			};
 
-			partition@580000 {
+			partition@400000 {
 				label = "bdinfo";
-				reg = <0x580000 0x80000>;
+				reg = <0x400000 0x80000>;
 				read-only;
 
 				nvmem-layout {
