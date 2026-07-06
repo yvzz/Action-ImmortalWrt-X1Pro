@@ -67,7 +67,7 @@ jobs:
           echo "=== 内存 ==="
           free -h
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Init Environment
         run: |
@@ -146,7 +146,7 @@ jobs:
           echo "=== 内存 ==="
           free -h
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set BUILD_DATE env
         # 必须在 run 步骤里设置，才能在后续 with: 块中通过 ${{ env.BUILD_DATE }} 引用
@@ -185,7 +185,7 @@ jobs:
           ln -sf /workdir/openwrt $GITHUB_WORKSPACE/openwrt
 
       - name: Setup ccache & DL cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             /workdir/.ccache
@@ -259,7 +259,7 @@ jobs:
           find openwrt/bin/targets -type f -name "*.bin" -o -name "*.fit" -o -name "*.tar" 2>/dev/null
 
       - name: Upload Binaries (Artifacts)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: steps.compile.outputs.status == 'success'
         with:
           name: ImmortalWrt_X1Pro-openwrt-24.10-6.6-${{ env.BUILD_DATE }}
@@ -282,45 +282,48 @@ jobs:
           **Branch:** $REPO_BRANCH
           **Device:** Oray X1 Pro (ubootmod, 112M UBI)
           **Build Date:** $(date +"%Y-%m-%d %H:%M:%S")
-          **Compiler:** GCC with ccache
-
-          ## Flash Layout (x1pro-mod-112m)
-
-          | Partition | Size  | Offset   |
-          |-----------|-------|----------|
-          | BL2       | 1024k | 0x0      |
-          | u-boot-env| 512k | 0x100000 |
-          | Factory   | 2048k | 0x180000 |
-          | FIP       | 2048k  | 0x380000 |
-          | bdinfo    | 512k   | 0x580000 |
-          | kpanic    | 2048k  | 0x600000 |
-          | ubi_0     | 114688k | 0x800000 |
 
           ## Download
 
-          Download the firmware files from the assets below.
-          Flash **sysupgrade.bin** via uboot web or sysupgrade.
+          从下方 Assets 下载固件。
+          通过 uboot web 刷写 `sysupgrade.bin` 即可。
 
           ---
 
-          Built with using [GitHub Actions](https://github.com/features/actions)
+          Built with [GitHub Actions](https://github.com/features/actions)
           EOF
 
           echo "status=success" >> $GITHUB_OUTPUT
 
+      - name: List sysupgrade files for release
+        id: list-files
+        if: steps.tag.outputs.status == 'success'
+        run: |
+          FIRMWARE_DIR="openwrt/bin/targets/mediatek/filogic"
+          SYSUPGRADE_FILES=$(ls "$FIRMWARE_DIR"/*oray_x1_pro*squashfs-sysupgrade.bin 2>/dev/null || true)
+          echo "Found sysupgrade files:"
+          echo "$SYSUPGRADE_FILES"
+          if [ -z "$SYSUPGRADE_FILES" ]; then
+            echo "WARNING: No sysupgrade files found!"
+            echo "contents=" >> $GITHUB_OUTPUT
+          else
+            # 转为多行字符串传给后续步骤
+            # 用 JSON 编码避免空格/换行问题
+            echo "contents<<EOF" >> $GITHUB_OUTPUT
+            echo "$SYSUPGRADE_FILES" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+          fi
+
       - name: Upload to Release
         uses: softprops/action-gh-release@v2
-        if: steps.tag.outputs.status == 'success'
+        if: steps.list-files.outputs.contents != ''
         with:
           tag_name: ${{ steps.tag.outputs.release_tag }}
           body_path: release.txt
           prerelease: ${{ env.PRERELEASE == 'true' }}
-          # 只发布刷机用的 bin 文件，排除 kernel、rootfs、manifest 等中间产物
+          # 只发布 sysupgrade.bin 刷机文件，其他中间产物忽略
           files: |
-            openwrt/bin/targets/mediatek/filogic/*-squashfs-sysupgrade.bin
-            openwrt/bin/targets/mediatek/filogic/*-squashfs-factory.bin
-            openwrt/bin/targets/mediatek/filogic/*-initramfs-factory.bin
-            openwrt/bin/targets/mediatek/filogic/*-initramfs-sysupgrade.bin
+            openwrt/bin/targets/mediatek/filogic/*oray_x1_pro*-squashfs-sysupgrade.bin
 
       - name: Delete old workflow runs
         uses: Mattraks/delete-workflow-runs@v2
