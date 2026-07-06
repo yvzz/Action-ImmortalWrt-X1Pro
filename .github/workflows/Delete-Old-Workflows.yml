@@ -3,54 +3,115 @@ name: Delete Old Workflows
 on:
   workflow_dispatch:
     inputs:
-      enabled:
-        description: '启用清理'
-        required: true
+      delete_by_time:
+        description: '☑ 按时间删除（时间优先级高于状态勾选）'
+        required: false
         type: boolean
         default: false
       retain_days:
-        description: '保留最近几天的成功 Workflow（填 0 删除全部）'
-        required: true
+        description: '保留最近几天（天），0=删除全部'
+        required: false
         type: number
         default: 1
-      include_cancelled:
-        description: '同时删除取消的 Workflow'
-        required: true
+      delete_cancelled:
+        description: '删除已取消（cancelled）的 Workflow'
+        required: false
+        type: boolean
+        default: false
+      delete_failed:
+        description: '删除失败（failure）的 Workflow'
+        required: false
+        type: boolean
+        default: false
+      delete_success:
+        description: '删除成功（success）的 Workflow'
+        required: false
         type: boolean
         default: false
   schedule:
     - cron: 0 3 * * 0
 
 jobs:
-  Cleaning:
+  delete-by-time:
+    name: Delete by Time
     runs-on: ubuntu-24.04
-
+    # 时间的优先级高于状态：勾选"按时间删除"时，无论状态全部删除
+    if: ${{ inputs.delete_by_time }}
     steps:
-    - name: Delete Old Workflows By Days
-      if: ${{ inputs.enabled }}
-      uses: Mattraks/delete-workflow-runs@main
-      with:
-        token: ${{ secrets.GITHUB_TOKEN }}
-        retain_days: ${{ inputs.retain_days }}
-        keep_minimum_runs: ${{ inputs.retain_days }}
-        delete_run_by_conclusion_pattern: ''
+      - name: Delete Old Workflows by Days
+        uses: Mattraks/delete-workflow-runs@main
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          retain_days: ${{ inputs.retain_days }}
+          keep_minimum_runs: 0
+          delete_canceled: true
+          delete_failed: true
+          delete_success: true
+          delete_conclusion_pattern: ''
 
-    - name: Delete All Cancelled Workflows
-      if: ${{ inputs.enabled && inputs.include_cancelled }}
-      uses: Mattraks/delete-workflow-runs@main
-      with:
-        token: ${{ secrets.GITHUB_TOKEN }}
-        retain_days: 0
-        keep_minimum_runs: 0
-        delete_run_by_conclusion_pattern: cancelled
+  delete-cancelled:
+    name: Delete Cancelled
+    runs-on: ubuntu-24.04
+    # 未勾选"按时间删除"时，才按状态删除；且勾选了"删除已取消"
+    if: ${{ !inputs.delete_by_time && inputs.delete_cancelled }}
+    steps:
+      - name: Delete All Cancelled Workflows
+        uses: Mattraks/delete-workflow-runs@main
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          retain_days: 0
+          keep_minimum_runs: 0
+          delete_canceled: true
+          delete_conclusion_pattern: ''
 
-    - name: Delete Old Releases
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: |
-        KEEP=5
-        RELEASES=$(gh release list -R ${{ github.repository }} --limit 100 --json tagName,createdAt -q 'sort_by(.createdAt) | reverse | .['"$KEEP"':] | .[].tagName')
-        for tag in $RELEASES; do
-          echo "Deleting release: $tag"
-          gh release delete "$tag" -R ${{ github.repository }} --yes --cleanup-tag
-        done
+  delete-failed:
+    name: Delete Failed
+    runs-on: ubuntu-24.04
+    # 未勾选"按时间删除"时，才按状态删除；且勾选了"删除失败"
+    if: ${{ !inputs.delete_by_time && inputs.delete_failed }}
+    steps:
+      - name: Delete All Failed Workflows
+        uses: Mattraks/delete-workflow-runs@main
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          retain_days: 0
+          keep_minimum_runs: 0
+          delete_failed: true
+          delete_conclusion_pattern: ''
+
+  delete-success:
+    name: Delete Success
+    runs-on: ubuntu-24.04
+    # 未勾选"按时间删除"时，才按状态删除；且勾选了"删除成功"
+    if: ${{ !inputs.delete_by_time && inputs.delete_success }}
+    steps:
+      - name: Delete All Success Workflows
+        uses: Mattraks/delete-workflow-runs@main
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          retain_days: 0
+          keep_minimum_runs: 0
+          delete_success: true
+          delete_conclusion_pattern: ''
+
+  delete-old-releases:
+    name: Delete Old Releases
+    runs-on: ubuntu-24.04
+    # 仅在勾选了任意删除条件时运行（避免定时触发误删）
+    if: ${{ inputs.delete_by_time || inputs.delete_cancelled || inputs.delete_failed || inputs.delete_success }}
+    steps:
+      - name: Delete Old Releases (keep latest 5)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          KEEP=5
+          RELEASES=$(gh release list -R ${{ github.repository }} \
+            --limit 100 \
+            --json tagName,createdAt \
+            -q 'sort_by(.createdAt) | reverse | .['"$KEEP"':] | .[].tagName')
+          for tag in $RELEASES; do
+            echo "Deleting release: $tag"
+            gh release delete "$tag" \
+              -R ${{ github.repository }} \
+              --yes --cleanup-tag
+          done
