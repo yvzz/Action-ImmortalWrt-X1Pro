@@ -6,19 +6,19 @@ on:
 
       # ─── 清理对象 ───
       do_tags:
-        description: '☑ 清理孤立 Tag（无关联 Release 的 Tag）'
+        description: '清理孤立 Tag（无关联 Release 的 Tag）'
         required: false
         type: boolean
         default: false
 
       do_releases:
-        description: '☑ 清理旧 Release'
+        description: '清理旧 Release'
         required: false
         type: boolean
         default: false
 
       do_workflows:
-        description: '☑ 清理 Workflow Runs'
+        description: '清理 Workflow Runs'
         required: false
         type: boolean
         default: false
@@ -32,7 +32,7 @@ on:
 
       # ─── Workflow 参数 ───
       delete_by_time:
-        description: '☑ 按时间删除（时间优先级高于状态勾选）'
+        description: '按时间删除（时间优先级高于状态勾选）'
         required: false
         type: boolean
         default: false
