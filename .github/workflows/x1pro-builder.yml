@@ -267,7 +267,7 @@ jobs:
           fi
 
           # 编译，verbose 可选
-          if ${{ inputs.verbose }}; then
+          if [ "${{ inputs.verbose }}" = "true" ]; then
             make -j$(nproc) V=s 2>&1 | tee build.log
           else
             make -j$(nproc) 2>&1 | tail -30
