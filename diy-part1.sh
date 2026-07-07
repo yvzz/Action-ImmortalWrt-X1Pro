@@ -13,27 +13,39 @@ OPENWRT="$WORKSPACE/openwrt"
 
 echo "=== DIY Part 1: Device setup ==="
 
-# ── 1. Copy X1 Pro DTS into kernel source tree ──────────────────────────────
-DTS_SRC="$WORKSPACE/mt7981b-oray-x1-pro.dts"
-DTS_DST="$OPENWRT/target/linux/mediatek/files/arch/arm64/boot/dts/mediatek/"
+# ── 1. Copy X1 Pro ubootmod DTS into kernel source tree ──────────────────
+DTS_DIR="$OPENWRT/target/linux/mediatek/files/arch/arm64/boot/dts/mediatek/"
+mkdir -p "$DTS_DIR"
 
-if [ -f "$DTS_SRC" ]; then
-  echo "[1/5] Copying X1 Pro DTS to kernel tree..."
-  mkdir -p "$DTS_DST"
-  cp "$DTS_SRC" "$DTS_DST"
-  echo "      → $DTS_DST$(basename $DTS_SRC)"
-else
-  echo "[1/5] WARNING: $DTS_SRC not found, skipping DTS copy"
+if [ -f "$WORKSPACE/mt7981b-oray-x1pro-v1-ubootmod.dts" ]; then
+  echo "[1/5] Copying ubootmod DTS..."
+  cp "$WORKSPACE/mt7981b-oray-x1pro-v1-ubootmod.dts" "$DTS_DIR"
+  echo "      → $DTS_DIRmt7981b-oray-x1pro-v1-ubootmod.dts"
 fi
 
-# ── 2. Patch filogic.mk ────────────────────────────────────────────────────
+if [ -f "$WORKSPACE/mt7981b-oray-x1pro-v1.dtsi" ]; then
+  echo "[1/5] Copying shared .dtsi..."
+  cp "$WORKSPACE/mt7981b-oray-x1pro-v1.dtsi" "$DTS_DIR"
+  echo "      → $DTS_DIRmt7981b-oray-x1pro-v1.dtsi"
+fi
+
+# ── 2. Patch filogic.mk: 去掉 stock oray_x1pro-v1，只保留 ubootmod ────────
 FILOGIC_SRC="$WORKSPACE/filogic.mk"
 FILOGIC_DST="$OPENWRT/target/linux/mediatek/filogic.mk"
 
 if [ -f "$FILOGIC_SRC" ]; then
-  echo "[2/5] Patching filogic.mk with oray_x1pro-v1 device..."
+  echo "[2/5] Patching filogic.mk (remove stock oray_x1pro-v1, keep ubootmod only)..."
   cp "$FILOGIC_SRC" "$FILOGIC_DST"
-  echo "      → $FILOGIC_DST"
+  # 用 awk 彻底删除 stock oray_x1pro-v1 Device 块 + TARGET_DEVICES 行
+  awk '
+    BEGIN { skip = 0 }
+    /^define Device\/oray_x1pro-v1$/ && !/ubootmod/ { skip = 1 }
+    skip && /^endef$/ { skip = 0; next }
+    skip && /^TARGET_DEVICES += oray_x1pro-v1$/ { next }
+    skip { next }
+    { print }
+  ' "$FILOGIC_DST" > "${FILOGIC_DST}.tmp" && mv "${FILOGIC_DST}.tmp" "$FILOGIC_DST"
+  echo "      → $FILOGIC_DST (stock oray_x1pro-v1 removed)"
 else
   echo "[2/5] WARNING: $FILOGIC_SRC not found"
 fi
