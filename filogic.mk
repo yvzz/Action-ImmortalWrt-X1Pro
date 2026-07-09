@@ -925,7 +925,7 @@ define Device/oray_x1pro-v1
   IMAGE_SIZE := 114688k
   KERNEL_IN_UBI := 1
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
-  DEVICE_PACKAGES := kmod-usb3 kmod-usb-net kmod-usb-net-rndis kmod-usb-net-cdc-ether kmod-usb-net-cdc-subset kmod-usb-net-cdc-eem kmod-usb-net-cdc-ncm kmod-usb-net-huawei-cdc-ncm kmod-usb-net-ipheth kmod-usb-net-sierrawireless kmod-usb-net-qmi-wwan kmod-usb-serial kmod-usb-serial-option kmod-usb-serial-wwan kmod-usb-serial-qualcomm kmod-usb-acm kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware automount luci-app-openclash luci-app-store
+  DEVICE_PACKAGES := kmod-usb3 kmod-usb-net kmod-usb-net-rndis kmod-usb-net-cdc-ether kmod-usb-net-cdc-subset kmod-usb-net-cdc-eem kmod-usb-net-cdc-ncm kmod-usb-net-huawei-cdc-ncm kmod-usb-net-ipheth kmod-usb-net-sierrawireless kmod-usb-net-qmi-wwan kmod-usb-serial kmod-usb-serial-option kmod-usb-serial-wwan kmod-usb-serial-qualcomm kmod-usb-acm automount luci-app-openclash luci-app-store
 endef
 TARGET_DEVICES += oray_x1pro-v1
 
@@ -2644,6 +2644,6 @@ define Device/oray_x1pro-v1-ubootmod
   IMAGE_SIZE := 114688k
   KERNEL_IN_UBI := 1
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
-  DEVICE_PACKAGES := kmod-usb3 kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware automount
+  DEVICE_PACKAGES := kmod-usb3 automount
 endef
 TARGET_DEVICES += oray_x1pro-v1-ubootmod

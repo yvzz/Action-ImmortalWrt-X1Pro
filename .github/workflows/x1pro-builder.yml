@@ -17,7 +17,7 @@ on:
         description: '指定源码仓库地址'
         required: true
         type: string
-        default: 'https://github.com/padavanonly/immortalwrt-mt798x-6.6'
+        default: 'https://github.com/yvzz/immortalwrt-mt798x-6.6'
       commit:
         description: '指定源码commit进行编译，留空拉取最新源码'
         required: false
@@ -47,7 +47,7 @@ on:
 env:
   CCACHE_DIR: /workdir/.ccache
   CCACHE_MAXSIZE: 2G
-  REPO_URL: ${{ github.event.inputs.repo || github.event.client_payload.repo || 'https://github.com/padavanonly/immortalwrt-mt798x-6.6' }}
+  REPO_URL: ${{ github.event.inputs.repo || github.event.client_payload.repo || 'https://github.com/yvzz/immortalwrt-mt798x-6.6' }}
   REPO_BRANCH: openwrt-24.10-6.6
   REPO_COMMIT: ${{ github.event.inputs.commit }}
   FEEDS_CONF: feeds.conf.default
