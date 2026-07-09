@@ -61,10 +61,14 @@ cat > "$BOARD_D/02_network" << 'EOFBOARD'
 # 蒲公英 X1 Pro 网络初始化 (DSA)
 # gmac0 = 2.5G SFP WAN, gmac1 = GE RJ45 LAN
 
+. /lib/functions/uci-defaults.sh
+
 board_config_update
 
 ucidef_set_interface_loopback
 ucidef_set_interfaces_lan_wan "eth1" "eth0"
+
+board_config_flush
 
 exit 0
 EOFBOARD
