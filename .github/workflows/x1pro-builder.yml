@@ -1,4 +1,4 @@
-name: Builder ImmortalWrt for X1Pro-mod-112m 
+name: Build ImmortalWrt for X1Pro-mod-112m 
 
 permissions:
   contents: write
