@@ -270,11 +270,8 @@ jobs:
           done
 
           # 编译，始终保留完整日志
-          if [ "${{ inputs.verbose }}" = "true" ]; then
-            make -j$(nproc) V=s 2>&1 | tee build.log
-          else
-            make -j$(nproc) 2>&1 | tee build.log | tail -50
-          fi
+          # 临时：所有编译都使用 V=s 以便调试
+          make -j$(nproc) V=s 2>&1 | tee build.log
 
           # 如果编译失败，打印最后200行日志帮助诊断
           if ! find bin/targets -name "*oray_x1pro-v1-ubootmod*sysupgrade.bin" 2>/dev/null | grep -q .; then
