@@ -9,7 +9,7 @@ on:
         description: '删除失败的 Workflow'
         required: true
         type: choice
-        default: 'YES'
+        default: 'NO'
         options:
           - 'YES'
           - 'NO'

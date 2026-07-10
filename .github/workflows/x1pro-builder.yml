@@ -32,7 +32,7 @@ on:
         description: '启用详细编译日志 V=s（出错调试用）'
         required: false
         type: boolean
-        default: false
+        default: true
       release:
         description: '是否发布编译产物到 Release'
         required: false
