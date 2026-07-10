@@ -259,6 +259,16 @@ jobs:
           # 下载所有依赖
           make download -j$(nproc)
 
+          # binutils-2.42 readelf.c 使用了 glibc 专有的 off64_t / fseeko64，
+          # musl libc 不支持，直接 patch 源码用 off_t / fseeko 替代
+          make toolchain/binutils/prepare V=s 2>/dev/null || true
+          for rf in build_dir/toolchain-*/binutils-*/binutils/readelf.c; do
+            if [ -f "$rf" ]; then
+              sed -i 's/off64_t/off_t/g; s/fseeko64/fseeko/g' "$rf"
+              echo "Patched $rf"
+            fi
+          done
+
           # 编译，始终保留完整日志
           if [ "${{ inputs.verbose }}" = "true" ]; then
             make -j$(nproc) V=s 2>&1 | tee build.log
