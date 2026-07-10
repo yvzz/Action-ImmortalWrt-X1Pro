@@ -914,7 +914,7 @@ TARGET_DEVICES += cudy_tr3000-v1-256mb
 
 define Device/oray_x1pro-v1
   DEVICE_VENDOR := Oray
-  DEVICE_MODEL := 蒲公英 X1Pro
+  DEVICE_MODEL := X1Pro
   DEVICE_VARIANT := v1
   DEVICE_DTS := mt7981b-oray-x1pro-v1
   DEVICE_DTS_DIR := ../dts
@@ -931,7 +931,7 @@ TARGET_DEVICES += oray_x1pro-v1
 
 define Device/oray_x1pro-v1-ubootmod
   DEVICE_VENDOR := Oray
-  DEVICE_MODEL := 蒲公英 X1Pro
+  DEVICE_MODEL := X1Pro
   DEVICE_VARIANT := v1 ubootmod
   DEVICE_DTS := mt7981b-oray-x1pro-v1-ubootmod
   DEVICE_DTS_DIR := ../dts

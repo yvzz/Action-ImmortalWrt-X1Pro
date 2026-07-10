@@ -4,7 +4,7 @@
 #include "mt7981b-oray-x1pro-v1.dtsi"
 
 / {
-	model = "Oray 蒲公英 X1Pro v1";
+	model = "Oray X1Pro v1";
 	compatible = "oray,x1pro-v1", "mediatek,mt7981";
 };
 

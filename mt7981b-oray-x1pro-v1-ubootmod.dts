@@ -4,7 +4,7 @@
 #include "mt7981b-oray-x1pro-v1.dtsi"
 
 / {
-	model = "Oray 蒲公英 X1Pro v1 ubi 112M";
+	model = "Oray X1Pro v1 ubi 112M";
 	compatible = "oray,x1pro-v1-ubootmod", "mediatek,mt7981";
 };
 
