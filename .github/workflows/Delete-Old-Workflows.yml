@@ -1,8 +1,8 @@
 name: Delete Old Workflows
 
 on:
-  push:
-    branches: [ main, master ]
+  # push:
+  #   branches: [ main, master ]
   workflow_dispatch:
     inputs:
       delete_failed:
