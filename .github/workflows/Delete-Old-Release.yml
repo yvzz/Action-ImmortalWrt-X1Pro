@@ -122,6 +122,9 @@ jobs:
             if [ "$published_ts" -lt "$CUTOFF" ]; then
               echo "  删除: $tag (发布于 $published)"
               gh release delete "$tag" --yes --repo ${{ github.repository }}
+              # 同时删除关联的 Tag
+              echo "  删除关联 Tag: $tag"
+              gh api --method DELETE "repos/${{ github.repository }}/git/refs/tags/$tag" 2>/dev/null || true
               deleted=$((deleted + 1))
             else
               echo "  保留: $tag (发布于 $published)"
