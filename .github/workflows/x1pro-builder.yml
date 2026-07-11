@@ -129,7 +129,7 @@ jobs:
         run: |
           ./scripts/feeds update -a
           # 只 install 需要的 feeds，跳过已在 diy-part1.sh 里直接 clone 的
-          ./scripts/feeds install packages luci routing openclash
+          ./scripts/feeds install packages luci routing luci-app-openclash
 
       - name: Load custom configuration
         run: |
@@ -264,7 +264,7 @@ jobs:
         run: |
           ./scripts/feeds update -a
           # 只 install 需要的 feeds，跳过已在 diy-part1.sh 里直接 clone 的
-          ./scripts/feeds install packages luci routing openclash
+          ./scripts/feeds install packages luci routing luci-app-openclash
 
       - name: Load custom configuration
         run: |
