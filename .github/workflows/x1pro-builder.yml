@@ -4,9 +4,9 @@ permissions:
   contents: write
 
 on:
-  push:
-    branches:
-      - main
+  # push:
+  #   branches:
+  #     - main
   schedule:
     - cron: 0 19 * * 0   # 每周日 19:00 UTC = 北京时间周一 03:00
   repository_dispatch:
