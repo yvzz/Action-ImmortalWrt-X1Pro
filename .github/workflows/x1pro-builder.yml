@@ -272,8 +272,17 @@ jobs:
         run: |
           cd openwrt
 
+          # GitHub 免费 runner 只有 7GB RAM，编译大量包容易 OOM
+          # 增加 4GB swap + 限制并行数为 2 核
+          sudo fallocate -l 4G /swapfile 2>/dev/null || sudo dd if=/dev/zero of=/swapfile bs=1M count=4096
+          sudo chmod 600 /swapfile
+          sudo mkswap /swapfile
+          sudo swapon /swapfile
+          NPROC=$(($(nproc) > 4 ? 4 : $(nproc)))
+          echo "CPU: $(nproc) cores, using -j${NPROC}"
+
           # 下载所有依赖
-          make download -j$(nproc)
+          make download -j${NPROC}
 
           # binutils-2.42 readelf.c 使用了 glibc 专有的 off64_t / fseeko64，
           # musl libc 不支持，直接 patch 源码用 off_t / fseeko 替代
@@ -287,9 +296,9 @@ jobs:
 
           # 编译，默认不开启详细日志，出错时可用 verbose 输入开启 V=s
           if [ "${{ inputs.verbose }}" = "true" ]; then
-            make -j$(nproc) V=s 2>&1 | tee build.log
+            make -j${NPROC} V=s 2>&1 | tee build.log
           else
-            make -j$(nproc) 2>&1 | tee build.log
+            make -j${NPROC} 2>&1 | tee build.log
           fi
 
           # 如果编译失败，打印最后200行日志帮助诊断
