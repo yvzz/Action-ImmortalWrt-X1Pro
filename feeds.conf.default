@@ -3,8 +3,4 @@ src-git luci https://github.com/immortalwrt/luci.git;openwrt-24.10
 src-git routing https://github.com/openwrt/routing.git;openwrt-24.10
 src-git telephony https://github.com/openwrt/telephony.git;openwrt-24.10
 src-git istore https://github.com/linkease/istore.git;main
-src-git aurora https://github.com/eamonxg/luci-theme-aurora.git;master
-src-git aurora_config https://github.com/eamonxg/luci-app-aurora-config.git;master
 src-git openclash https://github.com/vernesong/OpenClash.git;master
-src-git bandix https://github.com/timsaya/luci-app-bandix.git;main
-src-git openwrt_bandix https://github.com/timsaya/openwrt-bandix.git;main

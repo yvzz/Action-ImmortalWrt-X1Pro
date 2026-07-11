@@ -120,8 +120,6 @@ jobs:
         run: |
           cd openwrt
           ./scripts/feeds update -a && ./scripts/feeds install -a
-          echo "=== feeds installed, verifying aurora/bandix packages ==="
-          ./scripts/feeds list 2>/dev/null | grep -iE "aurora|bandix|openclash" || true
 
       - name: Load custom configuration
         run: |
@@ -252,8 +250,6 @@ jobs:
       - name: Update & Install feeds
         working-directory: /workdir/openwrt
         run: |
-          # 强制重新 clone 第三方 feeds（分支变更后需要）
-          rm -rf feeds/aurora feeds/aurora_config
           ./scripts/feeds update -a
           ./scripts/feeds install -a
 
