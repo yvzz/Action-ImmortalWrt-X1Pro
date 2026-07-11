@@ -878,6 +878,40 @@ define Device/cudy_tr3000-v1
 endef
 TARGET_DEVICES += cudy_tr3000-v1
 
+define Device/oray_x1pro-v1
+  DEVICE_VENDOR := Oray
+  DEVICE_MODEL := X1Pro
+  DEVICE_VARIANT := v1
+  DEVICE_DTS := mt7981b-oray-x1pro-v1
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += R47
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  IMAGE_SIZE := 114688k
+  KERNEL_IN_UBI := 1
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+  DEVICE_PACKAGES := kmod-usb3 kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware automount
+endef
+TARGET_DEVICES += oray_x1pro-v1
+
+define Device/oray_x1pro-v1-ubootmod
+  DEVICE_VENDOR := Oray
+  DEVICE_MODEL := X1Pro
+  DEVICE_VARIANT := v1 ubootmod
+  DEVICE_DTS := mt7981b-oray-x1pro-v1-ubootmod
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += R47 cudy_tr3000-v1-ubootmod
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  IMAGE_SIZE := 114688k
+  KERNEL_IN_UBI := 1
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+  DEVICE_PACKAGES := kmod-usb3 kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware automount
+endef
+TARGET_DEVICES += oray_x1pro-v1-ubootmod
+
 define Device/cudy_tr3000-v1-ubootmod
   DEVICE_VENDOR := Cudy
   DEVICE_MODEL := TR3000
@@ -911,40 +945,6 @@ define Device/cudy_tr3000-v1-256mb
   DEVICE_PACKAGES := kmod-usb3 kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware automount
 endef
 TARGET_DEVICES += cudy_tr3000-v1-256mb
-
-define Device/oray_x1pro-v1
-  DEVICE_VENDOR := Oray
-  DEVICE_MODEL := X1Pro
-  DEVICE_VARIANT := v1
-  DEVICE_DTS := mt7981b-oray-x1pro-v1
-  DEVICE_DTS_DIR := ../dts
-  SUPPORTED_DEVICES += R47
-  UBINIZE_OPTS := -E 5
-  BLOCKSIZE := 128k
-  PAGESIZE := 2048
-  IMAGE_SIZE := 114688k
-  KERNEL_IN_UBI := 1
-  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
-  DEVICE_PACKAGES := kmod-usb3 kmod-usb-net kmod-usb-net-rndis kmod-usb-net-cdc-ether kmod-usb-net-cdc-subset kmod-usb-net-cdc-eem kmod-usb-net-cdc-ncm kmod-usb-net-huawei-cdc-ncm kmod-usb-net-ipheth kmod-usb-net-sierrawireless kmod-usb-net-qmi-wwan kmod-usb-serial kmod-usb-serial-option kmod-usb-serial-wwan kmod-usb-serial-qualcomm kmod-usb-acm automount luci-app-openclash luci-app-store
-endef
-TARGET_DEVICES += oray_x1pro-v1
-
-define Device/oray_x1pro-v1-ubootmod
-  DEVICE_VENDOR := Oray
-  DEVICE_MODEL := X1Pro
-  DEVICE_VARIANT := v1 ubootmod
-  DEVICE_DTS := mt7981b-oray-x1pro-v1-ubootmod
-  DEVICE_DTS_DIR := ../dts
-  SUPPORTED_DEVICES += R47 cudy_tr3000-v1-ubootmod
-  UBINIZE_OPTS := -E 5
-  BLOCKSIZE := 128k
-  PAGESIZE := 2048
-  IMAGE_SIZE := 114688k
-  KERNEL_IN_UBI := 1
-  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
-  DEVICE_PACKAGES := kmod-usb3 automount
-endef
-TARGET_DEVICES += oray_x1pro-v1-ubootmod
 
 define Device/cudy_wr3000-v1
   DEVICE_VENDOR := Cudy
