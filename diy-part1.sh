@@ -81,8 +81,7 @@ fi
 
 # 6. Patch 02_network — MAC 设置修复（幂等）
 #    内核 DSA 驱动通过 nvmem 读取 eth0/eth1 MAC 失败（返回全 FF），
-#    导致 eth0/eth1 显示全 FF。用 bdinfo 读取的正确 MAC 覆盖。
-#    wan_mac/lan_mac 在 mediatek_setup_macs 中已设置，退出前用 ip link 覆盖。
+#    导致 eth0/eth1 显示全 FF。直接读 bdinfo 覆盖（wan_mac/lan_mac 是 local 变量不可见）。
 if [ -f "$NETWORK_FILE" ]; then
   if ! grep -q "X1 Pro MAC fix" "$NETWORK_FILE"; then
     python3 -c "
@@ -93,11 +92,15 @@ with open(f) as fh:
 old = 'exit 0'
 new = '''
 # X1 Pro MAC fix: kernel DSA driver fails to read MAC via nvmem for eth0/eth1,
-# resulting in all-Fs. Override with the correct MAC already read from bdinfo.
+# resulting in all-Fs. Re-read from bdinfo (wan_mac/lan_mac are local vars
+# inside mediatek_setup_macs, not visible here).
 case $board in
 oray,x1pro-v1|oray,x1pro-v1-ubootmod)
-\tip link set eth0 address \"$wan_mac\" 2>/dev/null
-\tip link set eth1 address \"$lan_mac\" 2>/dev/null
+\t_x1_wan=\\$(mtd_get_mac_binary bdinfo 0xde00)
+\tif [ -n \"\$_x1_wan\" ]; then
+\t\tip link set eth0 address \"\$_x1_wan\" 2>/dev/null
+\t\tip link set eth1 address \"\\$(macaddr_add \"\$_x1_wan\" 1)\" 2>/dev/null
+\tfi
 \t;;
 esac
 
