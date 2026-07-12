@@ -25,7 +25,7 @@ on:
         description: '保留天数（0 = 除正在运行的全部删除）'
         required: true
         type: number
-        default: 7
+        default: 15
   schedule:
     - cron: 0 16 * * 0   # 每周日 16:00 UTC = 北京时间周一 00:00
 
@@ -39,8 +39,8 @@ jobs:
       run: |
         set -e
 
-        RETAIN_DAYS="${{ inputs.retain_days || '7' }}"
-        DELETE_FAILED="${{ inputs.delete_failed || 'YES' }}"
+        RETAIN_DAYS="${{ inputs.retain_days || '15' }}"
+        DELETE_FAILED="${{ inputs.delete_failed || 'NO' }}"
         DELETE_CANCELLED="${{ inputs.delete_cancelled || 'YES' }}"
         CURRENT_RUN_ID="${{ github.run_id }}"
 
