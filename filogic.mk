@@ -63,7 +63,7 @@ metadata_gl_json = \
 		$(if $(filter 1.0,$(compat_version)),"supported_devices":[$(call metadata_devices,$(SUPPORTED_DEVICES))]$(comma)) \
 		"version": { \
 			"release": "$(call json_quote,$(VERSION_NUMBER))", \
-			"date": "$(shell TZ='Asia/Chongqing' date '+%Y%m%d%H%M%S')", \
+			"date": "$(shell TZ='Asia/Shanghai' date '+%Y%m%d%H%M%S')", \
 			"dist": "$(call json_quote,$(VERSION_DIST))", \
 			"version": "$(call json_quote,$(VERSION_NUMBER))", \
 			"revision": "$(call json_quote,$(REVISION))", \
@@ -891,7 +891,7 @@ define Device/oray_x1pro-v1
   IMAGE_SIZE := 114688k
   KERNEL_IN_UBI := 1
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
-  DEVICE_PACKAGES := kmod-usb3 kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware automount
+  DEVICE_PACKAGES := kmod-usb3 mt7981-wo-firmware automount
 endef
 TARGET_DEVICES += oray_x1pro-v1
 

@@ -53,7 +53,7 @@ env:
   FEEDS_CONF: feeds.conf.default
   DIY_P1_SH: diy-part1.sh
   DIY_P2_SH: diy-part2.sh
-  CONFIG_FILE: config/X1Pro.config
+  CONFIG_FILE: config/X1ProUBoot.config
   UPLOAD_RELEASE: ${{ github.event.inputs.release || github.event.client_payload.release || 'true' }}
   PRERELEASE: ${{ github.event.inputs.prerelease }}
   TZ: Asia/Shanghai
@@ -61,6 +61,9 @@ env:
 jobs:
   menuconfig:
     name: Menuconfig & Push
+    # GitHub web UI always sends boolean inputs as string "true"/"false";
+    # API / repository_dispatch may send actual boolean. Both coerce to
+    # non-empty string in the == 'true' comparison, so this is safe.
     if: github.event.inputs.ssh == 'true'
     runs-on: ubuntu-24.04
     steps:
@@ -234,7 +237,7 @@ jobs:
             /workdir/.ccache
             /workdir/openwrt/dl
             /workdir/openwrt/feeds
-          key: ${{ runner.os }}-openwrt-x1pro-${{ env.REPO_BRANCH }}-${{ hashFiles('config/X1Pro.config', 'feeds.conf.default') }}
+          key: ${{ runner.os }}-openwrt-x1pro-${{ env.REPO_BRANCH }}-${{ hashFiles('config/X1ProUBoot.config', 'feeds.conf.default') }}
           restore-keys: |
             ${{ runner.os }}-openwrt-x1pro-${{ env.REPO_BRANCH }}-
 
@@ -350,7 +353,7 @@ jobs:
             /workdir/.ccache
             /workdir/openwrt/dl
             /workdir/openwrt/feeds
-          key: ${{ runner.os }}-openwrt-x1pro-${{ env.REPO_BRANCH }}-${{ hashFiles('config/X1Pro.config', 'feeds.conf.default') }}
+          key: ${{ runner.os }}-openwrt-x1pro-${{ env.REPO_BRANCH }}-${{ hashFiles('config/X1ProUBoot.config', 'feeds.conf.default') }}
 
       - name: Upload Binaries (Artifacts)
         uses: actions/upload-artifact@v7
