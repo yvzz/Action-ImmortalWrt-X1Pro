@@ -82,9 +82,7 @@
 		phy-mode = "2500base-x";
 		phy-handle = <&phy1>;
 		nvmem-cell-names = "mac-address";
-		nvmem-cells = <&macaddr_factory_e000 0>;  
-
-
+		nvmem-cells = <&macaddr_bdinfo_de00 0>;
 	};
 
 	gmac1: mac@1 {
@@ -93,7 +91,7 @@
 		phy-mode = "gmii";
 		phy-handle = <&int_gbe_phy>;
 		nvmem-cell-names = "mac-address";
-		nvmem-cells = <&macaddr_factory_e000 1>; 
+		nvmem-cells = <&macaddr_bdinfo_de00 1>;
 	};
 };
 
@@ -222,7 +220,7 @@
 };
 
 &wifi {
-    status = "okay";
-    nvmem-cells = <&eeprom_factory_0>, <&macaddr_factory_04>;
-    nvmem-cell-names = "eeprom", "mac-address";
+	status = "okay";
+	nvmem-cells = <&eeprom_factory_0>, <&macaddr_bdinfo_de00 2>;
+	nvmem-cell-names = "eeprom", "mac-address";
 };
