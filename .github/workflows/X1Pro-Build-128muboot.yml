@@ -1,5 +1,4 @@
-name: Build ImmortalWrt 2
-
+name: Build ImmortalWrt 128muboot
 permissions:
   contents: write
 
@@ -8,7 +7,7 @@ on:
   #   branches:
   #     - main
   schedule:
-    - cron: 30 16 * * *   # 每周日 19:00 UTC = 北京时间周一 03:00
+    - cron: 0 16 * * *   # 每周日 19:00 UTC = 北京时间周一 03:00
   repository_dispatch:
     types: [ "X1Pro Update" ]
   workflow_dispatch:
@@ -53,7 +52,7 @@ env:
   FEEDS_CONF: feeds.conf.default
   DIY_P1_SH: diy-part1.sh
   DIY_P2_SH: diy-part2.sh
-  CONFIG_FILE: config/X1ProUBoot2.config
+  CONFIG_FILE: config/128muboot.config
   UPLOAD_RELEASE: ${{ github.event.inputs.release || github.event.client_payload.release || 'true' }}
   PRERELEASE: ${{ github.event.inputs.prerelease }}
   TZ: Asia/Shanghai
@@ -234,7 +233,7 @@ jobs:
             /workdir/.ccache
             /workdir/openwrt/dl
             /workdir/openwrt/feeds
-          key: ${{ runner.os }}-openwrt-x1pro-${{ env.REPO_BRANCH }}-${{ hashFiles('config/X1ProUBoot2.config', 'feeds.conf.default') }}
+          key: ${{ runner.os }}-openwrt-x1pro-${{ env.REPO_BRANCH }}-${{ hashFiles('config/128muboot.config', 'feeds.conf.default') }}
           restore-keys: |
             ${{ runner.os }}-openwrt-x1pro-${{ env.REPO_BRANCH }}-
 
@@ -350,7 +349,7 @@ jobs:
             /workdir/.ccache
             /workdir/openwrt/dl
             /workdir/openwrt/feeds
-          key: ${{ runner.os }}-openwrt-x1pro-${{ env.REPO_BRANCH }}-${{ hashFiles('config/X1ProUBoot2.config', 'feeds.conf.default') }}
+          key: ${{ runner.os }}-openwrt-x1pro-${{ env.REPO_BRANCH }}-${{ hashFiles('config/128muboot.config', 'feeds.conf.default') }}
 
       - name: Upload Binaries (Artifacts)
         uses: actions/upload-artifact@v7
