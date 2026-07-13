@@ -8,7 +8,7 @@ on:
   #   branches:
   #     - main
   schedule:
-    - cron: 30 16 * * *   # 每周日 19:00 UTC = 北京时间周一 03:00
+    - cron: 59 23 * * *   
   repository_dispatch:
     types: [ "X1Pro Update" ]
   workflow_dispatch:
