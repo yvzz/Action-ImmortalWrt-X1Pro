@@ -194,7 +194,7 @@ jobs:
 
   # ── 编译 ──────────────────────────────────────────
   build:
-    name: Build (${{ matrix.target }}, ${{ env.PROXY }})
+    name: Build (${{ matrix.target }})
     needs: setup
     strategy:
       fail-fast: false
