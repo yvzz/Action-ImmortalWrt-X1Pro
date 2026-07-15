@@ -43,6 +43,16 @@ on:
         required: false
         type: boolean
         default: false
+      proxy:
+        description: '选择代理软件'
+        required: false
+        type: choice
+        default: 'none'
+        options:
+          - 'none'
+          - 'openclash'
+          - 'passwall'
+          - 'homeproxy'
 
 env:
   CCACHE_DIR: /workdir/.ccache
@@ -53,9 +63,10 @@ env:
   FEEDS_CONF: feeds.conf.default
   DIY_P1_SH: diy-part1.sh
   DIY_P2_SH: diy-part2.sh
-  CONFIG_FILE: config/128muboot.config
+  CONFIG_BASE: config/128muboot
   UPLOAD_RELEASE: ${{ github.event.inputs.release || github.event.client_payload.release || 'true' }}
   PRERELEASE: ${{ github.event.inputs.prerelease }}
+  PROXY: ${{ github.event.inputs.proxy || github.event.client_payload.proxy || 'none' }}
   TZ: Asia/Shanghai
 
 jobs:
@@ -64,6 +75,15 @@ jobs:
     if: github.event.inputs.ssh == 'true'
     runs-on: ubuntu-24.04
     steps:
+      - name: Resolve Config File
+        run: |
+          if [ "${{ env.PROXY }}" = "none" ]; then
+            echo "CONFIG_FILE=${{ env.CONFIG_BASE }}.config" >> $GITHUB_ENV
+          else
+            echo "CONFIG_FILE=${{ env.CONFIG_BASE }}-${{ env.PROXY }}.config" >> $GITHUB_ENV
+          fi
+          echo "Using config: $CONFIG_FILE"
+
       - name: Check Server Performance
         run: |
           echo "警告⚠"
@@ -166,6 +186,15 @@ jobs:
     runs-on: ubuntu-24.04
 
     steps:
+      - name: Resolve Config File
+        run: |
+          if [ "${{ env.PROXY }}" = "none" ]; then
+            echo "CONFIG_FILE=${{ env.CONFIG_BASE }}.config" >> $GITHUB_ENV
+          else
+            echo "CONFIG_FILE=${{ env.CONFIG_BASE }}-${{ env.PROXY }}.config" >> $GITHUB_ENV
+          fi
+          echo "Using config: $CONFIG_FILE"
+
       - name: Check Server Performance
         run: |
           echo "警告⚠"
@@ -234,7 +263,7 @@ jobs:
             /workdir/.ccache
             /workdir/openwrt/dl
             /workdir/openwrt/feeds
-          key: ${{ runner.os }}-openwrt-x1pro-${{ env.REPO_BRANCH }}-${{ hashFiles('config/128muboot.config', 'feeds.conf.default') }}
+          key: ${{ runner.os }}-openwrt-x1pro-${{ env.REPO_BRANCH }}
           restore-keys: |
             ${{ runner.os }}-openwrt-x1pro-${{ env.REPO_BRANCH }}-
 
@@ -350,13 +379,13 @@ jobs:
             /workdir/.ccache
             /workdir/openwrt/dl
             /workdir/openwrt/feeds
-          key: ${{ runner.os }}-openwrt-x1pro-${{ env.REPO_BRANCH }}-${{ hashFiles('config/128muboot.config', 'feeds.conf.default') }}
+          key: ${{ runner.os }}-openwrt-x1pro-${{ env.REPO_BRANCH }}
 
       - name: Upload Binaries (Artifacts)
         uses: actions/upload-artifact@v7
         if: steps.compile.outputs.status == 'success'
         with:
-          name: ImmortalWrt_X1Pro-openwrt-24.10-6.6-${{ env.BUILD_DATE }}
+          name: ImmortalWrt_X1Pro-128muboot-openwrt-24.10-6.6-${{ env.PROXY }}-${{ env.BUILD_DATE }}
           path: |
             openwrt/bin/targets/mediatek/filogic/*oray_x1pro-v1-ubootmod*sysupgrade.bin
 
@@ -365,7 +394,7 @@ jobs:
         if: steps.compile.outputs.status == 'success' && env.UPLOAD_RELEASE == 'true'
         run: |
           BUILD_TIME=$(date +"%Y%m%d-%H%M")
-          RELEASE_TAG="ImmortalWrt-X1Pro-${BUILD_TIME}"
+          RELEASE_TAG="ImmortalWrt-X1Pro-128muboot-${PROXY}-${BUILD_TIME}"
           echo "release_tag=$RELEASE_TAG" >> $GITHUB_OUTPUT
           echo "Release tag: $RELEASE_TAG"
 
