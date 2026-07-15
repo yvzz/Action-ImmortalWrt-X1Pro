@@ -381,7 +381,7 @@ jobs:
         uses: actions/upload-artifact@v7
         if: steps.compile.outputs.status == 'success'
         with:
-          name: ImmortalWrt_X1Pro-${{ matrix.target }}-${{ env.PROXY }}-${{ env.BUILD_DATE }}
+          name: ImmortalWrt-${{ matrix.target }}-${{ env.PROXY }}-${{ env.BUILD_DATE }}
           path: |
             openwrt/bin/targets/mediatek/filogic/${FW_GLOB}*sysupgrade.bin
 
@@ -390,7 +390,7 @@ jobs:
         if: steps.compile.outputs.status == 'success' && env.UPLOAD_RELEASE == 'true'
         run: |
           BUILD_TIME=$(date +"%Y%m%d-%H%M")
-          RELEASE_TAG="X1Pro-${BUILD_TIME}"
+          RELEASE_TAG="ImmortalWrt-${BUILD_TIME}"
           echo "release_tag=$RELEASE_TAG" >> $GITHUB_OUTPUT
           echo "Release tag: $RELEASE_TAG"
 
