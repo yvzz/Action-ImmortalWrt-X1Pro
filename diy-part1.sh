@@ -13,10 +13,19 @@ echo "=== DIY Part 1: X1 Pro setup ==="
 # 1. Clone third-party packages into package/ (参照 TR3000)
 #    直接 clone 避免 feeds 分支/index 问题
 mkdir -p "$OPENWRT/package"
-git clone --depth=1 https://github.com/eamonxg/luci-theme-aurora "$OPENWRT/package/luci-theme-aurora"
-git clone --depth=1 https://github.com/eamonxg/luci-app-aurora-config "$OPENWRT/package/luci-app-aurora-config"
-git clone --depth=1 https://github.com/timsaya/luci-app-bandix  "$OPENWRT/package/luci-app-bandix"
-git clone --depth=1 https://github.com/timsaya/openwrt-bandix  "$OPENWRT/package/openwrt-bandix"
+for repo in luci-theme-aurora luci-app-aurora-config luci-app-bandix openwrt-bandix; do
+  if [ -d "$OPENWRT/package/$repo" ]; then
+    echo "  → $repo already exists, skipping clone"
+  else
+    case "$repo" in
+      luci-theme-aurora)      url="https://github.com/eamonxg/luci-theme-aurora" ;;
+      luci-app-aurora-config) url="https://github.com/eamonxg/luci-app-aurora-config" ;;
+      luci-app-bandix)        url="https://github.com/timsaya/luci-app-bandix" ;;
+      openwrt-bandix)         url="https://github.com/timsaya/openwrt-bandix" ;;
+    esac
+    git clone --depth=1 "$url" "$OPENWRT/package/$repo"
+  fi
+done
 echo "  → aurora packages cloned"
 
 # 1b. Fix bandix Makefile: 将 zoneinfo-all 替换为本地 x1pro-zoneinfo
@@ -86,22 +95,23 @@ $(eval $(call BuildPackage,x1pro-zoneinfo))
 MAKEFILE_EOF
 echo "  → x1pro-zoneinfo metapackage created"
 
+# --- DTS & filogic.mk 已集成到上游源码，无需复制 ---
 # 2. Copy DTS files
-DTS_DIR="$OPENWRT/target/linux/mediatek/files/arch/arm64/boot/dts/mediatek/"
-mkdir -p "$DTS_DIR"
-
-for f in mt7981b-oray-x1pro-v1.dtsi mt7981b-oray-x1pro-v1.dts mt7981b-oray-x1pro-v1-ubootmod.dts; do
-  if [ -f "$WORKSPACE/$f" ]; then
-    cp "$WORKSPACE/$f" "$DTS_DIR"
-    echo "  → $f"
-  fi
-done
-
+# DTS_DIR="$OPENWRT/target/linux/mediatek/files/arch/arm64/boot/dts/mediatek/"
+# mkdir -p "$DTS_DIR"
+#
+# for f in mt7981b-oray-x1pro-v1.dtsi mt7981b-oray-x1pro-v1.dts mt7981b-oray-x1pro-v1-ubootmod.dts; do
+#   if [ -f "$WORKSPACE/$f" ]; then
+#     cp "$WORKSPACE/$f" "$DTS_DIR"
+#     echo "  → $f"
+#   fi
+# done
+#
 # 3. Patch filogic.mk
-if [ -f "$WORKSPACE/filogic.mk" ]; then
-  cp "$WORKSPACE/filogic.mk" "$OPENWRT/target/linux/mediatek/filogic.mk"
-  echo "  → filogic.mk patched"
-fi
+# if [ -f "$WORKSPACE/filogic.mk" ]; then
+#   cp "$WORKSPACE/filogic.mk" "$OPENWRT/target/linux/mediatek/filogic.mk"
+#   echo "  → filogic.mk patched"
+# fi
 
 # 4. Patch upstream 02_network — X1 Pro 接口定义（幂等）
 #    X1 Pro: eth1=LAN, eth0=WAN（与 TR3000 相同）
