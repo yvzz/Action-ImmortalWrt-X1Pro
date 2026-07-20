@@ -277,33 +277,18 @@ jobs:
             fi
           fi
 
-          # 收集两个设备固件
-          # 注意：必须用精确 glob，避免 "oray_x1pro-v1" 误匹配到 "oray_x1pro-v1-ubootmod"
-          for DEV in oray_x1pro-v1 oray_x1pro-v1-ubootmod; do
-            if [ "$DEV" = "oray_x1pro-v1" ]; then
-              FW_GLOB="*oray_x1pro-v1-squashfs-sysupgrade.bin"
-            else
-              FW_GLOB="*oray_x1pro-v1-ubootmod-squashfs-sysupgrade.bin"
-            fi
-            SYSUPGRADE=$(find bin/targets -name "$FW_GLOB" 2>/dev/null | head -1)
-            if [ -z "$SYSUPGRADE" ]; then
-              # ubootmod 是主用固件（uboot 刷机），缺失则构建失败；
-              # 非 ubootmod 为 stock bootloader 备用固件，缺失仅告警跳过
-              if [ "$DEV" = "oray_x1pro-v1-ubootmod" ]; then
-                echo "ERROR: No firmware for $DEV!"
-                find bin/targets -name "*.bin" 2>/dev/null | head -10
-                exit 1
-              else
-                echo "WARN: 未生成 $DEV 固件（stock bootloader 备用），跳过。若仅用 uboot 刷机可忽略。"
-                continue
-              fi
-            fi
-            echo "Built: $SYSUPGRADE ($(du -h "$SYSUPGRADE" | cut -f1))"
-            cp "$SYSUPGRADE" "$GITHUB_WORKSPACE/firmware_collection/"
-          done
+          # 收集固件（仅 ubootmod，X1Pro 用 uboot 刷机）
+          SYSUPGRADE=$(find bin/targets -name '*oray_x1pro-v1-ubootmod*sysupgrade.bin' 2>/dev/null | head -1)
+          if [ -z "$SYSUPGRADE" ]; then
+            echo "ERROR: No firmware found!"
+            find bin/targets -name "*.bin" 2>/dev/null | head -10
+            exit 1
+          fi
+          echo "Built: $SYSUPGRADE ($(du -h "$SYSUPGRADE" | cut -f1))"
+          cp "$SYSUPGRADE" "$GITHUB_WORKSPACE/firmware_collection/"
 
-          echo "All devices compiled successfully"
-          echo "DEVICES=oray_x1pro-v1 oray_x1pro-v1-ubootmod" >> $GITHUB_ENV
+          echo "Compilation successful"
+          echo "DEVICES=oray_x1pro-v1-ubootmod" >> $GITHUB_ENV
           echo "status=success" >> $GITHUB_OUTPUT
 
           # 列出产物
