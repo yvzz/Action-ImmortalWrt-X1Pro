@@ -46,7 +46,7 @@ jobs:
       contents: write
     # 在 Delete Old Releases 完成后执行：release 被删后其 tag 才变"孤立"，再清理才彻底
     # 兼容 delete-releases 被 skipped 的场景（push 触发 / 未勾选 do_releases / 手动默认）
-    if: ${{ (github.event_name == 'push' || inputs.do_tags || github.event_name == 'schedule') && (needs.delete-releases.result == 'success' || needs.delete-releases.result == 'skipped') }}
+    if: ${{ (github.event_name == 'push' || inputs.do_tags || github.event_name == 'schedule') && (needs.delete-releases.result == 'success' || needs.delete-releases.result == 'skipped' || needs.delete-releases.result == 'failure') }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
