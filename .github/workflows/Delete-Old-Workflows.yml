@@ -23,7 +23,7 @@ on:
           - 'NO'
       delete_skipped:
         description: '删除跳过的 Workflow'
-        required: false
+        required: true
         type: choice
         default: 'YES'
         options:
