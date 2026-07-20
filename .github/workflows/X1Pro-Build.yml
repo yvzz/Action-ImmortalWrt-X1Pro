@@ -6,7 +6,7 @@ permissions:
 
 on:
   schedule:
-    - cron: 0 0 */3 * *   # UTC 00:00 = 北京 08:00，每3天一次
+    - cron: 0 20 */3 * *   # UTC 00:00 = 北京 04:00，每3天一次
   repository_dispatch:
     types: [ "X1Pro Update" ]
   workflow_dispatch:
