@@ -15,7 +15,7 @@ on:
         description: '选择代理软件'
         required: false
         type: choice
-        default: 'none'
+        default: 'homeproxy'
         options:
           - 'none'
           - 'openclash'
