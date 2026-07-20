@@ -1,9 +1,10 @@
 name: Delete Old Release
 
 on:
-  push:
-    branches:
-      - main
+  # push:
+  #   branches: [ main, master ]
+  schedule:
+    - cron: 0 23 */3 * *   # 每周一 03:00 UTC
   workflow_dispatch:
     inputs:
 
@@ -29,8 +30,7 @@ on:
         default: 7
 
 
-  schedule:
-    - cron: 0 23 * * *   # 每周一 03:00 UTC
+
 
 # ──────────────────────────────────────────────
 jobs:

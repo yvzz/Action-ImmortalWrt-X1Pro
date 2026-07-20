@@ -3,6 +3,8 @@ name: Delete Old Workflows
 on:
   # push:
   #   branches: [ main, master ]
+  schedule:
+    - cron: 10 23 */3 * *
   workflow_dispatch:
     inputs:
       delete_failed:
@@ -34,8 +36,7 @@ on:
         required: true
         type: number
         default: 7
-  schedule:
-    - cron: 0 3 * * 0
+
 
 permissions:
   actions: write  # 必须，写权限才能删除其他 workflow runs
