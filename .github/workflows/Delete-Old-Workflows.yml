@@ -21,6 +21,14 @@ on:
         options:
           - 'YES'
           - 'NO'
+      delete_skipped:
+        description: '删除跳过的 Workflow'
+        required: false
+        type: choice
+        default: 'YES'
+        options:
+          - 'YES'
+          - 'NO'
       retain_days:
         description: '保留天数（0 = 除正在运行的全部删除）'
         required: true
@@ -45,6 +53,7 @@ jobs:
         RETAIN_DAYS="${{ inputs.retain_days || '7' }}"
         DELETE_FAILED="${{ inputs.delete_failed || 'YES' }}"
         DELETE_CANCELLED="${{ inputs.delete_cancelled || 'YES' }}"
+        DELETE_SKIPPED="${{ inputs.delete_skipped || 'YES' }}"
         CURRENT_RUN_ID="${{ github.run_id }}"
 
         echo "RETAIN_DAYS=$RETAIN_DAYS, CURRENT_RUN_ID=$CURRENT_RUN_ID"
@@ -82,6 +91,13 @@ jobs:
             echo "  + ALL cancelled runs (no time limit)" >&2
             jq -r --arg CURRENT "$CURRENT_RUN_ID" \
               '.[] | select(.status == "completed") | select(.conclusion == "cancelled") | select((.databaseId | tostring) != $CURRENT) | .databaseId | tostring' \
+              /tmp/runs.json >> /tmp/ids-to-delete.txt
+          fi
+
+          if [ "$DELETE_SKIPPED" = "YES" ]; then
+            echo "  + ALL skipped runs (no time limit)" >&2
+            jq -r --arg CURRENT "$CURRENT_RUN_ID" \
+              '.[] | select(.status == "completed") | select(.conclusion == "skipped") | select((.databaseId | tostring) != $CURRENT) | .databaseId | tostring' \
               /tmp/runs.json >> /tmp/ids-to-delete.txt
           fi
 
