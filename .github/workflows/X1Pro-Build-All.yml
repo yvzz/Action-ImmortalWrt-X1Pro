@@ -6,7 +6,7 @@ permissions:
 
 on:
   schedule:
-    - cron: 0 20 */3 * *   # UTC 00:00 = 北京 04:00，每3天一次
+    - cron: 0 20 */3 * *   # UTC 20:00 = 北京 04:00，每3天一次
   repository_dispatch:
     types: [ "X1Pro Update" ]
   workflow_dispatch:
@@ -122,14 +122,19 @@ jobs:
             git push -f origin HEAD:$(git rev-parse --abbrev-ref HEAD)
           )
 
-  # ── 编译（单 job + for 循环，复用 toolchain） ───
+  # ── 三代理并行编译（matrix 策略，每个代理一个 runner） ───
   build:
-    name: Build X1Pro
+    name: Build ${{ matrix.proxy }}
     runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        proxy: [passwall, openclash, homeproxy]
 
     steps:
       - name: Check Server Performance
         run: |
+          echo "代理: ${{ matrix.proxy }}"
           echo "CPU核心: $(nproc)"
           echo "CPU型号: $(cat /proc/cpuinfo | grep -m1 name | awk -F: '{print $2}')"
           echo "内存: $(free -h | grep Mem | awk '{print $2}')"
@@ -172,20 +177,22 @@ jobs:
       - name: Clone source code
         working-directory: /workdir
         run: |
-          git clone $REPO_URL -b $REPO_BRANCH --single-branch --filter=blob:none openwrt
+          # 每个矩阵 job 用独立目录，避免并行写冲突
+          WORKDIR="/workdir/openwrt-${{ matrix.proxy }}"
+          git clone $REPO_URL -b $REPO_BRANCH --single-branch --filter=blob:none "$WORKDIR"
           if [ -n "${REPO_COMMIT}" ]; then
-            cd openwrt && git checkout ${REPO_COMMIT}
+            cd "$WORKDIR" && git checkout ${REPO_COMMIT}
           fi
-          ln -sf /workdir/openwrt $GITHUB_WORKSPACE/openwrt
+          ln -sf "$WORKDIR" $GITHUB_WORKSPACE/openwrt
 
       - name: Setup caches
         uses: actions/cache@v6
         with:
           path: |
             /workdir/.ccache
-            /workdir/openwrt/dl
-            /workdir/openwrt/feeds
-          key: ${{ runner.os }}-openwrt-x1pro-${{ env.REPO_BRANCH }}
+            /workdir/openwrt-${{ matrix.proxy }}/dl
+            /workdir/openwrt-${{ matrix.proxy }}/feeds
+          key: ${{ runner.os }}-openwrt-x1pro-${{ env.REPO_BRANCH }}-${{ matrix.proxy }}
           restore-keys: |
             ${{ runner.os }}-openwrt-x1pro-${{ env.REPO_BRANCH }}-
 
@@ -197,21 +204,19 @@ jobs:
           ccache -z
 
       - name: Setup feeds & patches
-        working-directory: /workdir/openwrt
+        working-directory: /workdir/openwrt-${{ matrix.proxy }}
         run: |
           cp $GITHUB_WORKSPACE/$FEEDS_CONF .
           ./scripts/feeds update -a
           ./scripts/feeds install -a
 
-      # ── Swap + 编译环境准备 ──
       - name: Prepare build environment
+        working-directory: /workdir/openwrt-${{ matrix.proxy }}
         run: |
-          cd openwrt
           sudo fallocate -l 4G /swapfile 2>/dev/null || sudo dd if=/dev/zero of=/swapfile bs=1M count=4096
           sudo chmod 600 /swapfile
           sudo mkswap /swapfile
           sudo swapon /swapfile
-          # binutils readelf.c musl fix
           make toolchain/binutils/prepare V=s 2>/dev/null || true
           for rf in build_dir/toolchain-*/binutils-*/binutils/readelf.c; do
             if [ -f "$rf" ]; then
@@ -220,119 +225,118 @@ jobs:
             fi
           done
 
-      # ── 三代理编译（passwall → openclash → homeproxy） ──
-      - name: Multi-Proxy Compilation
+      - name: Compile ${{ matrix.proxy }}
         id: compile
+        working-directory: /workdir/openwrt-${{ matrix.proxy }}
         run: |
-          PROXIES=("passwall" "openclash" "homeproxy")
+          CONFIG_FILE="config/x1pro-${{ matrix.proxy }}.config"
           NPROC=$(($(nproc) > 4 ? 4 : $(nproc)))
-          mkdir -p "$GITHUB_WORKSPACE/firmware_collection"
-          cd /workdir/openwrt
+          echo "Proxy: ${{ matrix.proxy }}"
+          echo "Config: $CONFIG_FILE"
+          echo "Jobs: -j${NPROC}"
 
-          for PROXY in "${PROXIES[@]}"; do
-            CONFIG_FILE="config/x1pro-${PROXY}.config"
-            echo ""
-            echo "=========================================="
-            echo "  编译: $PROXY"
-            echo "  配置: $CONFIG_FILE"
-            echo "=========================================="
+          cp -f "$GITHUB_WORKSPACE/$CONFIG_FILE" .config
+          chmod +x "$GITHUB_WORKSPACE/$DIY_P1_SH"
+          "$GITHUB_WORKSPACE/$DIY_P1_SH"
+          chmod +x "$GITHUB_WORKSPACE/$DIY_P2_SH"
+          "$GITHUB_WORKSPACE/$DIY_P2_SH"
 
-            # 加载配置
-            cp -f "$GITHUB_WORKSPACE/$CONFIG_FILE" .config
+          make defconfig
+          make download -j$NPROC
 
-            # 执行 diy 脚本
-            chmod +x "$GITHUB_WORKSPACE/$DIY_P1_SH"
-            "$GITHUB_WORKSPACE/$DIY_P1_SH"
-            chmod +x "$GITHUB_WORKSPACE/$DIY_P2_SH"
-            "$GITHUB_WORKSPACE/$DIY_P2_SH"
+          if [ "${{ inputs.verbose }}" = "true" ]; then
+            make -j1 V=s CC="ccache gcc" CXX="ccache g++" 2>&1 | tee build.log || exit 1
+          else
+            make -j$NPROC CC="ccache gcc" CXX="ccache g++" 2>&1 | tee build.log || {
+              echo "Multi-threaded failed, retrying single-threaded..."
+              make -j1 V=s || exit 1
+            }
+          fi
 
-            make defconfig
-            make download -j$NPROC
+          SYSUPGRADE=$(find bin/targets -name '*oray_x1pro-v1-ubootmod*sysupgrade.bin' 2>/dev/null | head -1)
+          if [ -z "$SYSUPGRADE" ]; then
+            echo "ERROR: No firmware!"
+            find bin/targets -name "*.bin" 2>/dev/null | head -10
+            exit 1
+          fi
+          echo "Built: $SYSUPGRADE ($(du -h "$SYSUPGRADE" | cut -f1))"
 
-            if [ "${{ inputs.verbose }}" = "true" ]; then
-              make -j1 V=s CC="ccache gcc" CXX="ccache g++" || exit 1
-            else
-              if ! make -j$NPROC CC="ccache gcc" CXX="ccache g++"; then
-                echo "Multi-threaded failed, retrying single-threaded..."
-                make -j1 V=s || exit 1
-              fi
-            fi
+          # 重命名并放到 artifacts 目录
+          mkdir -p "$GITHUB_WORKSPACE/firmware"
+          cp "$SYSUPGRADE" "$GITHUB_WORKSPACE/firmware/ImmortalWrt-X1Pro-${{ matrix.proxy }}-sysupgrade.bin"
+          ls -lh "$GITHUB_WORKSPACE/firmware/"
 
-            # 收集并重命名固件
-            SYSUPGRADE=$(find bin/targets -name '*oray_x1pro-v1-ubootmod*sysupgrade.bin' 2>/dev/null | head -1)
-            if [ -z "$SYSUPGRADE" ]; then
-              echo "ERROR: No firmware for $PROXY!"
-              find bin/targets -name "*.bin" 2>/dev/null | head -10
-              exit 1
-            fi
-            echo "Built: $SYSUPGRADE ($(du -h "$SYSUPGRADE" | cut -f1))"
-            cp "$SYSUPGRADE" "$GITHUB_WORKSPACE/firmware_collection/ImmortalWrt-X1Pro-${PROXY}-sysupgrade.bin"
-
-            # 清理中间产物，释放磁盘空间
-            make clean 2>/dev/null || true
-            rm -rf bin build_dir/tmp .config .config.old staging_dir/target-* 2>/dev/null || true
-          done
-
-          echo "Compilation successful"
           echo "status=success" >> $GITHUB_OUTPUT
+          ccache -s || true
 
-          echo "=== 产物 ==="
-          ls -lh "$GITHUB_WORKSPACE/firmware_collection/"
-
-      - name: List artifacts
-        run: |
-          echo "=== Built Firmware ==="
-          ls -lh "$GITHUB_WORKSPACE/firmware_collection/"
-
-      - name: Cache save (always)
-        if: always()
-        uses: actions/cache@v6
+      - name: Upload build.log (on failure)
+        uses: actions/upload-artifact@v4
+        if: failure()
         with:
-          path: |
-            /workdir/.ccache
-            /workdir/openwrt/dl
-            /workdir/openwrt/feeds
-          key: ${{ runner.os }}-openwrt-x1pro-${{ env.REPO_BRANCH }}
+          name: build-log-${{ matrix.proxy }}
+          path: /workdir/openwrt-${{ matrix.proxy }}/build.log
+          retention-days: 7
 
       - name: Upload Binaries (Artifacts)
         uses: actions/upload-artifact@v7
         if: steps.compile.outputs.status == 'success'
         with:
-          name: ImmortalWrt-X1Pro-All-${{ env.BUILD_DATE }}
-          path: |
-            firmware_collection/*sysupgrade.bin
+          name: X1Pro-${{ matrix.proxy }}
+          path: firmware/ImmortalWrt-X1Pro-${{ matrix.proxy }}-sysupgrade.bin
+          retention-days: 14
 
-      # ── Release ──
+  # ── 汇总 Release（等待所有编译完成） ──────────
+  release:
+    name: Create Release
+    needs: build
+    if: always() && !cancelled() && env.UPLOAD_RELEASE == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: firmware_collection
+          merge-multiple: true
+          pattern: X1Pro-*
+
+      - name: List firmware
+        run: |
+          echo "=== Collected Firmware ==="
+          ls -lh firmware_collection/
+
       - name: Generate Release
-        id: release
-        if: steps.compile.outputs.status == 'success' && env.UPLOAD_RELEASE == 'true'
+        id: gen_release
         run: |
           BUILD_TIME=$(date +"%Y%m%d-%H%M")
           RELEASE_TAG="X1Pro-${BUILD_TIME}"
           echo "release_tag=$RELEASE_TAG" >> $GITHUB_OUTPUT
-          echo "Release: $RELEASE_TAG"
 
-          # 将发布说明写入 release.txt
+          NOTES="${{ env.BUILD_NOTES }}"
+
           {
             printf '## ImmortalWrt X1Pro Firmware\n\n'
             printf '**设备:** Oray X1 Pro (uboot)\n'
             printf '**分支:** openwrt-24.10-6.6\n'
-            printf '**代理:** passwall (xray) / openclash (mihomo) / homeproxy (sing-box)\n'
-            if [ -n "${{ env.BUILD_NOTES }}" ]; then
-              printf '\n**备注:** %s\n' "${{ env.BUILD_NOTES }}"
+            printf '**代理:** passwall / openclash / homeproxy\n'
+            if [ -n "$NOTES" ]; then
+              printf '\n**备注:** %s\n' "$NOTES"
             fi
-            printf '\n## 固件\n'
-            for f in $GITHUB_WORKSPACE/firmware_collection/*.bin; do
+            printf '\n## 固件\n\n'
+            for f in firmware_collection/*.bin; do
               [ -f "$f" ] || continue
-              echo "- $(basename "$f") ($(du -h "$f" | cut -f1))"
+              printf '- %s (%s)\n' "$(basename "$f")" "$(du -h "$f" | cut -f1)"
             done
             printf '\n## 📥 下载\n\n'
             printf '从下方 Assets 下载对应代理的 sysupgrade.bin，通过 uboot Web UI 刷入。\n\n'
-            printf '| 文件名 | 代理 |\n|--------|------|\n'
-            printf '| ImmortalWrt-X1Pro-passwall-sysupgrade.bin | Passwall2 (xray-core) |\n'
-            printf '| ImmortalWrt-X1Pro-openclash-sysupgrade.bin | OpenClash (mihomo) |\n'
-            printf '| ImmortalWrt-X1Pro-homeproxy-sysupgrade.bin | HomeProxy (sing-box) |\n'
-            printf '\n> 由 GitHub Actions 自动构建\n'
+            printf '| 文件名 | 代理 |\n'
+            printf '|--------|------|\n'
+            printf '| ImmortalWrt-X1Pro-passwall-sysupgrade.bin | Passwall2 |\n'
+            printf '| ImmortalWrt-X1Pro-openclash-sysupgrade.bin | OpenClash |\n'
+            printf '| ImmortalWrt-X1Pro-homeproxy-sysupgrade.bin | HomeProxy |\n\n'
+            printf '> 由 GitHub Actions 自动构建\n'
           } > release.txt
 
           echo "=== release.txt ==="
@@ -341,16 +345,15 @@ jobs:
 
       - name: Upload to Release
         uses: softprops/action-gh-release@v2
-        if: steps.release.outputs.status == 'success'
+        if: steps.gen_release.outputs.status == 'success'
         with:
-          tag_name: ${{ steps.release.outputs.release_tag }}
+          tag_name: ${{ steps.gen_release.outputs.release_tag }}
           body_path: release.txt
           files: |
             firmware_collection/*sysupgrade.bin
 
       - name: Delete old workflow runs
         uses: Mattraks/delete-workflow-runs@v2
-        if: always()
         with:
           retain_days: 0
           keep_minimum_runs: 10
