@@ -15,7 +15,7 @@ on:
         description: '选择代理软件'
         required: false
         type: choice
-        default: 'homeproxy'
+        default: 'none'
         options:
           - 'none'
           - 'openclash'
@@ -68,7 +68,7 @@ env:
   DIY_P2_SH: diy-part2.sh
   UPLOAD_RELEASE: ${{ github.event.inputs.release || github.event.client_payload.release || 'true' }}
   PRERELEASE: ${{ github.event.inputs.prerelease }}
-  PROXY: ${{ github.event.inputs.proxy || github.event.client_payload.proxy || 'none' }}
+  PROXY: ${{ github.event.inputs.proxy || github.event.client_payload.proxy || 'passwall' }}
   BUILD_NOTES: ${{ github.event.inputs.notes || github.event.client_payload.notes || '' }}
   TZ: Asia/Shanghai
 
