@@ -51,11 +51,6 @@ on:
         required: false
         type: boolean
         default: true
-      prerelease:
-        description: '发布为预发布版本'
-        required: false
-        type: boolean
-        default: false
 
 env:
   CCACHE_DIR: /workdir/.ccache
@@ -67,8 +62,7 @@ env:
   DIY_P1_SH: diy-part1.sh
   DIY_P2_SH: diy-part2.sh
   UPLOAD_RELEASE: ${{ github.event.inputs.release || github.event.client_payload.release || 'true' }}
-  PRERELEASE: ${{ github.event.inputs.prerelease }}
-  PROXY: ${{ github.event.inputs.proxy || github.event.client_payload.proxy || 'passwall' }}
+  PROXY: ${{ github.event.inputs.proxy || 'none' }}
   BUILD_NOTES: ${{ github.event.inputs.notes || github.event.client_payload.notes || '' }}
   TZ: Asia/Shanghai
 
@@ -236,6 +230,15 @@ jobs:
               echo "Patched $rf"
             fi
           done
+          # GCC 自身源码也引用了 off64_t（musl 1.2.x 已废弃）
+          make toolchain/gcc/initial/prepare V=s 2>/dev/null || true
+          for f in build_dir/toolchain-*/gcc-*/libcpp/files.c \
+                   build_dir/toolchain-*/gcc-*/gcc/genhooks.c \
+                   build_dir/toolchain-*/gcc-*/gcc/system.h; do
+            [ -f "$f" ] || continue
+            sed -i 's/off64_t/off_t/g; s/fseeko64/fseeko/g' "$f"
+            echo "Patched $f"
+          done
 
       # ── 多设备循环编译 ──
       - name: Multi-Device Compilation
@@ -285,10 +288,9 @@ jobs:
             exit 1
           fi
           echo "Built: $SYSUPGRADE ($(du -h "$SYSUPGRADE" | cut -f1))"
-          cp "$SYSUPGRADE" "$GITHUB_WORKSPACE/firmware_collection/"
+          cp "$SYSUPGRADE" "$GITHUB_WORKSPACE/firmware_collection/ImmortalWrt-X1Pro-${PROXY}-sysupgrade.bin"
 
           echo "Compilation successful"
-          echo "DEVICES=oray_x1pro-v1-ubootmod" >> $GITHUB_ENV
           echo "status=success" >> $GITHUB_OUTPUT
 
           # 列出产物
@@ -331,8 +333,7 @@ jobs:
           # 将发布说明写入 release.txt（softprops/action-gh-release 用 body_path 读取）
           {
             printf '## ImmortalWrt X1Pro Firmware\n\n'
-            printf '**设备:** Oray X1 Pro\n'
-            printf '**目标:** %s\n' "${{ env.DEVICES }}"
+            printf '**设备:** Oray X1 Pro (uboot)\n'
             printf '**代理:** %s\n' "${{ env.PROXY }}"
             printf '**分支:** openwrt-24.10-6.6\n'
             if [ -n "${{ env.BUILD_NOTES }}" ]; then
@@ -358,7 +359,6 @@ jobs:
         with:
           tag_name: ${{ steps.release.outputs.release_tag }}
           body_path: release.txt
-          prerelease: ${{ env.PRERELEASE == 'true' }}
           files: |
             firmware_collection/*sysupgrade.bin
 
