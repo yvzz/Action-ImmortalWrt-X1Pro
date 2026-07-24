@@ -12,7 +12,7 @@
 
 ## DHCP uboot
 
-编译自 https://github.com/weekdaycare/bl-mt798x-dhcpd 感谢大佬开源，兼容新 flash
+编译自 https://github.com/weekdaycare/bl-mt798x-dhcpd 感谢大佬开源。
 
 ![](/uboot.png)
 
