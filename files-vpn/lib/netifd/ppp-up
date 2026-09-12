@@ -1,0 +1,32 @@
+#!/bin/sh
+PPP_IPPARAM="$6"
+
+. /lib/netifd/netifd-proto.sh
+proto_init_update "$IFNAME" 1 1
+proto_set_keep 1
+[ -n "$PPP_IPPARAM" ] && {
+	[ -n "$IPLOCAL" ] && proto_add_ipv4_address "$IPLOCAL" 32 "" "${IPREMOTE:-2.2.2.2}"
+
+	# 接口设 defaultroute=0 时不加默认路由 (避免抢 WAN 默认网关)
+	_dr=$(uci -q get "network.$PPP_IPPARAM.defaultroute")
+	if [ "$_dr" = "0" ]; then
+		defaultroute=0
+		proto_add_dynamic_defaults
+		# 旧版 netifd 会异步把默认路由写进内核, 延迟删等它写完
+		( sleep 2; ip route del default dev "l2tp-$PPP_IPPARAM" 2>/dev/null ) &
+		logger -t ppp-up "skip default route for $PPP_IPPARAM (defaultroute=0)"
+	else
+		[ -n "$IPREMOTE" ] && proto_add_ipv4_route 0.0.0.0 0 "$IPREMOTE"
+	fi
+
+	[ -n "$DNS1" ] && proto_add_dns_server "$DNS1"
+	[ -n "$DNS2" -a "$DNS1" != "$DNS2" ] && proto_add_dns_server "$DNS2"
+}
+proto_send_update "$PPP_IPPARAM"
+
+[ -d /etc/ppp/ip-up.d ] && {
+	for SCRIPT in /etc/ppp/ip-up.d/*
+	do
+		[ -x "$SCRIPT" ] && "$SCRIPT" "$@"
+	done
+}

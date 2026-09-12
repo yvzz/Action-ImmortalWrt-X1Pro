@@ -1,0 +1,4 @@
+
+# SSH rate-limiting (anti brute-force via npc tunnel)
+iptables -I INPUT -p tcp --dport 22 -m conntrack --ctstate NEW -m recent --set --name SSH_RATE
+iptables -I INPUT -p tcp --dport 22 -m conntrack --ctstate NEW -m recent --update --seconds 60 --hitcount 5 --name SSH_RATE -j DROP

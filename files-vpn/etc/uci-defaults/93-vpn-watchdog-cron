@@ -1,0 +1,14 @@
+#!/bin/sh
+# uci-defaults: 安装 L2TP/IPsec 定时看门狗 (每 3 分钟)
+# 原因: hotplug 只在接口事件触发时跑 check-vpn.sh, 启动后若无事件则无人修复
+# 效果: 重启/断线后 3-5 分钟内自动恢复 L2TP+IPsec
+CRON_FILE="/etc/crontabs/root"
+LINE='*/3 * * * * [ -f /root/check-vpn.sh ] && sh /root/check-vpn.sh 2>&1 | logger -t vpn-watchdog'
+
+[ -f "$CRON_FILE" ] || touch "$CRON_FILE"
+grep -q "check-vpn.sh" "$CRON_FILE" 2>/dev/null || echo "$LINE" >> "$CRON_FILE"
+
+/etc/init.d/cron enable 2>/dev/null
+/etc/init.d/cron restart 2>/dev/null
+logger -t vpn-recover "cron 看门狗已安装: */3 * * * * check-vpn.sh"
+exit 0

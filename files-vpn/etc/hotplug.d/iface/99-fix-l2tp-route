@@ -1,0 +1,47 @@
+#!/bin/sh
+# X1Pro VPN 自动检测+修复 — hotplug 脚本
+# 任意网络接口状态变化(ifup/ifdown/ifchange)后延迟 15s, 调用检测脚本检测并修复
+# 合并到固件: files/etc/hotplug.d/iface/99-fix-l2tp-route
+
+# 跳过 loopback 接口 (无需处理)
+[ "$INTERFACE" = "loopback" ] && exit 0
+
+# 检测脚本候选列表(按优先级):
+#   主脚本 check-vpn.sh, 旧版固件可能仍带 vpn-check.sh, 一并兼容 (check-l2tp.sh 已废弃删除)
+CHECK_SCRIPT=""
+for cand in /root/check-vpn.sh /root/vpn-check.sh; do
+  [ -f "$cand" ] && { CHECK_SCRIPT="$cand"; break; }
+done
+
+# 前置条件: 检测脚本必须存在, 且网络配置中必须定义了 L2TP 接口
+[ -n "$CHECK_SCRIPT" ] || {
+  logger -t vpn-auto-fix "未找到检测脚本(check-vpn.sh/vpn-check.sh), 跳过自动修复"
+  exit 0
+}
+uci show network 2>/dev/null | grep -q "proto='l2tp'" || exit 0
+
+# 前置护栏: 仅当存在默认路由(WAN 已通)才执行检测修复.
+# 避免在开机早期 WAN 尚未就绪时就贸然重启 IPsec / L2TP,
+# 否则会打断隧道建立, 表现为"升级后拿不到 IP / 远端不通", 需手动重启才恢复.
+ip route show default >/dev/null 2>&1 || exit 0
+
+# 锁文件: 防止短时间内多次接口变化导致检测脚本并发执行
+LOCK="/var/lock/vpn-auto-fix.lock"
+if [ -e "$LOCK" ]; then
+  # 锁存在但超过 5 分钟视为过期(可能上次异常退出), 强制清理后继续
+  if [ -n "$(find "$LOCK" -mmin +5 2>/dev/null)" ]; then
+    rm -f "$LOCK"
+  else
+    exit 0
+  fi
+fi
+touch "$LOCK"
+
+# 后台延迟 15s 执行, 确保网络完全稳定后再检测修复
+(
+  sleep 15
+  sh "$CHECK_SCRIPT" 2>&1 | logger -t vpn-auto-fix
+  rm -f "$LOCK"
+) &
+
+exit 0

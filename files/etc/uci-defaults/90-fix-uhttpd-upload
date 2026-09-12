@@ -1,0 +1,5 @@
+#!/bin/sh
+# uci-defaults: 修复 uhttpd 上传大小限制 (支持固件升级)
+uci set uhttpd.main.max_upload='200000000'
+uci commit uhttpd
+exit 0
