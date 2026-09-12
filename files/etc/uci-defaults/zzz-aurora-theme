@@ -1,0 +1,8 @@
+#!/bin/sh
+# uci-defaults: 首次启动将 LuCI 默认主题切到 Aurora
+# 仅在 aurora 静态资源实际安装时才切换，避免主题切坏（缺包时保持默认 bootstrap）
+if [ -d /www/luci-static/aurora ]; then
+	uci set luci.main.mediaurlpath='/luci-static/aurora'
+	uci commit luci
+fi
+exit 0

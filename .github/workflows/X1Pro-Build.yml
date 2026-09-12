@@ -1,0 +1,556 @@
+name: Build ImmortalWrt X1Pro
+
+permissions:
+  contents: read
+
+on:
+  schedule:
+    - cron: '0 20 */3 * *'
+  repository_dispatch:
+    types: [X1Pro Update]
+  workflow_dispatch:
+    inputs:
+      proxy:
+        description: 选择代理软件
+        required: false
+        type: choice
+        default: 'none'
+        options:
+          - 'none'
+          - 'homeproxy'
+          - 'vpn'
+      notes:
+        description: 编译备注（发布到 Release 页面）
+        required: false
+        type: string
+        default: ''
+      ssh:
+        description: SSH 调试（仅支持分支，仅运行 make menuconfig，不构建）
+        required: false
+        type: boolean
+        default: false
+      verbose:
+        description: 详细编译日志（V=s）
+        required: false
+        type: boolean
+        default: false
+      release:
+        description: 发布到 Release
+        required: false
+        type: boolean
+        default: true
+
+env:
+  SOURCE_REPO: https://github.com/immortalwrt/immortalwrt
+  SOURCE_REF: v25.12.1
+  SOURCE_COMMIT: a3378d1a2c15beb2faf4b0bce9c00f07143efa29
+  FEEDS_CONF: feeds.conf.default
+  DEVICE_SETUP: diy-part1.sh
+  PROXY: ${{ inputs.proxy || 'none' }}
+  CCACHE_DIR: /workdir/.ccache
+  CCACHE_MAXSIZE: 2G
+  BUILD_NOTES: ${{ inputs.notes || github.event.client_payload.notes || '' }}
+  TZ: Asia/Shanghai
+
+jobs:
+  menuconfig:
+    name: Menuconfig
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.ssh }}
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - name: Validate menuconfig ref
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+        run: |
+          if [ "$REF_TYPE" != 'branch' ]; then
+            echo "ERROR: menuconfig can only save changes from a branch ref; selected ref type: $REF_TYPE" >&2
+            exit 1
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            build-essential bzip2 file gawk gettext git libncurses-dev patch \
+            perl python3 python3-ply rsync unzip wget
+          sudo mkdir -p /workdir
+          sudo chown "$USER:$(id -gn)" /workdir
+
+      - name: Prepare source
+        working-directory: /workdir
+        run: |
+          git clone "$SOURCE_REPO" --branch "$SOURCE_REF" --single-branch --filter=blob:none openwrt
+          test "$(git -C openwrt rev-parse HEAD)" = "$SOURCE_COMMIT"
+          ln -sfn /workdir/openwrt "$GITHUB_WORKSPACE/openwrt"
+          cp "$GITHUB_WORKSPACE/$FEEDS_CONF" openwrt/feeds.conf.default
+          cd openwrt
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a
+          bash "$GITHUB_WORKSPACE/$DEVICE_SETUP"
+          case "$PROXY" in
+            none)      CONFIG_FILE="config/x1pro.config" ;;
+            homeproxy) CONFIG_FILE="config/x1pro-homeproxy.config" ;;
+            vpn)       CONFIG_FILE="config/x1pro-vpn.config" ;;
+          esac
+          cp "$GITHUB_WORKSPACE/$CONFIG_FILE" .config
+          make defconfig
+
+      - name: SSH to menuconfig
+        uses: mxschmitt/action-tmate@35b54afac29c97fb54faba5b513f8fbd1882f113 # v3
+        with:
+          limit-access-to-actor: true
+        timeout-minutes: 30
+
+      - name: Export diffconfig
+        run: |
+          /workdir/openwrt/scripts/diffconfig.sh > "$RUNNER_TEMP/x1pro-${PROXY}.config"
+
+      - name: Upload diffconfig
+        uses: actions/upload-artifact@v7
+        with:
+          name: X1Pro-Menuconfig-${{ github.run_id }}
+          path: ${{ runner.temp }}/x1pro-${{ env.PROXY }}.config
+
+  save-menuconfig:
+    name: Save menuconfig
+    needs: menuconfig
+    if: ${{ needs.menuconfig.result == 'success' && github.ref_type == 'branch' }}
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Download diffconfig
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: X1Pro-Menuconfig-${{ github.run_id }}
+          path: menuconfig-output
+
+      - name: Commit diffconfig
+        run: |
+          case "$PROXY" in
+            none)      CONFIG_FILE="config/x1pro.config" ;;
+            homeproxy) CONFIG_FILE="config/x1pro-homeproxy.config" ;;
+            vpn)       CONFIG_FILE="config/x1pro-vpn.config" ;;
+          esac
+          cp "menuconfig-output/x1pro-${PROXY}.config" "$CONFIG_FILE"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add "$CONFIG_FILE"
+          if ! git diff --cached --quiet; then
+            git commit -m "build: update X1 Pro ${PROXY} config"
+            git pull --rebase origin "$GITHUB_REF_NAME"
+            git push origin "HEAD:$GITHUB_REF_NAME"
+          fi
+
+  build:
+    name: Build X1 Pro
+    if: ${{ github.event_name != 'workflow_dispatch' || !inputs.ssh }}
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    outputs:
+      build_time: ${{ steps.metadata.outputs.build_time }}
+      build_start_ts: ${{ steps.metadata.outputs.build_start_ts }}
+    steps:
+      - name: 检测服务器硬件配置
+        run: |
+          echo "==================== 服务器硬件配置 ===================="
+          echo ""
+          echo "[CPU]"
+          echo "  型号: $(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2 | xargs)"
+          echo "  物理核心: $(grep -c '^processor' /proc/cpuinfo)"
+          echo "  逻辑核心(线程): $(nproc)"
+          echo "  架构: $(uname -m)"
+          echo ""
+          echo "[内存]"
+          free -h | awk '/^Mem:/{printf "  总内存: %s\n  已用: %s\n  可用: %s\n", $2, $3, $7}'
+          echo "  Swap: $(free -h | awk '/^Swap:/{print $2" (总) / "$3" (已用)"}')"
+          echo ""
+          echo "[磁盘]"
+          df -h / /workdir 2>/dev/null | awk 'NR==1 || /\//{printf "  %-12s %6s 总 / %6s 已用 / %6s 可用 (挂载点 %s)\n", $1, $2, $3, $4, $6}'
+          echo ""
+          echo "[系统]"
+          echo "  内核: $(uname -r)"
+          echo "  发行版: $(. /etc/os-release && echo "$PRETTY_NAME")"
+          echo "  主机名: $(hostname)"
+          echo "  时区: $(cat /etc/timezone 2>/dev/null || timedatectl show -p Timezone --value 2>/dev/null || echo 'UTC')"
+          echo ""
+          echo "========================================================"
+
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set build metadata
+        id: metadata
+        run: |
+          BUILD_TIME=$(date +'%Y%m%d-%H%M%S')
+          BUILD_START_TS=$(date +%s)
+          echo "BUILD_TIME=$BUILD_TIME" >> "$GITHUB_ENV"
+          echo "BUILD_START_TS=$BUILD_START_TS" >> "$GITHUB_ENV"
+          echo "build_time=$BUILD_TIME" >> "$GITHUB_OUTPUT"
+          echo "build_start_ts=$BUILD_START_TS" >> "$GITHUB_OUTPUT"
+
+      - name: Free disk space
+        uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # main
+        with:
+          tool-cache: true
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: true
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            build-essential bzip2 ccache curl file gawk gettext git \
+            libelf-dev libncurses-dev libssl-dev patch perl python3 \
+            python3-docutils python3-pip python3-ply python3-pyelftools \
+            python3-setuptools python3-yaml rsync squashfs-tools \
+            subversion time unzip wget zlib1g-dev
+          sudo timedatectl set-timezone "$TZ"
+          sudo mkdir -p /workdir
+          sudo chown "$USER:$(id -gn)" /workdir
+
+      - name: Clone pinned ImmortalWrt source
+        working-directory: /workdir
+        run: |
+          git clone "$SOURCE_REPO" --branch "$SOURCE_REF" --single-branch --filter=blob:none openwrt
+          test "$(git -C openwrt rev-parse HEAD)" = "$SOURCE_COMMIT"
+          ln -sfn /workdir/openwrt "$GITHUB_WORKSPACE/openwrt"
+
+      - name: Restore caches
+        uses: actions/cache@v6
+        with:
+          path: |
+            /workdir/.ccache
+            /workdir/openwrt/dl
+            /workdir/openwrt/feeds
+          key: ${{ runner.os }}-x1pro-${{ env.SOURCE_REF }}-${{ env.SOURCE_COMMIT }}
+          restore-keys: |
+            ${{ runner.os }}-x1pro-${{ env.SOURCE_REF }}-
+
+      - name: Configure ccache
+        run: |
+          ccache --set-config=max_size="$CCACHE_MAXSIZE"
+          ccache --set-config=cache_dir="$CCACHE_DIR"
+          ccache --set-config=compression=true
+          ccache -z
+
+      - name: Prepare feeds and X1 Pro port
+        working-directory: /workdir/openwrt
+        run: |
+          cp "$GITHUB_WORKSPACE/$FEEDS_CONF" feeds.conf.default
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a
+          bash "$GITHUB_WORKSPACE/$DEVICE_SETUP"
+
+      - name: Prepare swap
+        run: |
+          sudo fallocate -l 4G /swapfile 2>/dev/null || \
+            sudo dd if=/dev/zero of=/swapfile bs=1M count=4096
+          sudo chmod 600 /swapfile
+          sudo mkswap /swapfile
+          sudo swapon /swapfile
+
+      - name: Build firmware
+        id: compile
+        working-directory: /workdir/openwrt
+        run: |
+          NPROC=$(($(nproc) > 4 ? 4 : $(nproc)))
+          case "$PROXY" in
+            none)      CONFIG_FILE="config/x1pro.config" ;;
+            homeproxy) CONFIG_FILE="config/x1pro-homeproxy.config" ;;
+            vpn)       CONFIG_FILE="config/x1pro-vpn.config" ;;
+          esac
+          echo "Proxy: $PROXY (config: $CONFIG_FILE)"
+          cp "$GITHUB_WORKSPACE/$CONFIG_FILE" .config
+
+          # files/ overlay: 通用配置（NPC/NPS 客户端 GUI、LuCI 主题、uci-defaults 等）
+          # 参考 24.10 逻辑：所有版本（none/homeproxy/vpn）均编入
+          if [ -d "$GITHUB_WORKSPACE/files" ]; then
+            mkdir -p files
+            cp -a "$GITHUB_WORKSPACE/files/." files/
+            echo "[ok] files/ overlay 已加载 ($(find "$GITHUB_WORKSPACE/files" -type f | wc -l) 文件, 含 NPC 客户端)"
+          fi
+          # files-vpn/ overlay: VPN 专属（l2tp/ipsec hotplug 与路由修复等），仅 vpn 版本叠加
+          if [ "$PROXY" = "vpn" ] && [ -d "$GITHUB_WORKSPACE/files-vpn" ]; then
+            cp -a "$GITHUB_WORKSPACE/files-vpn/." files/
+            echo "[ok] files-vpn/ overlay 已合并 ($(find "$GITHUB_WORKSPACE/files-vpn" -type f | wc -l) 文件)"
+          fi
+
+          # 编译时间标记（固件内 /root/BuildInfo.txt，精确到分），对齐 24.10 行为
+          mkdir -p files/root
+          {
+            echo "BUILD_TIME=${BUILD_TIME}"
+            echo "BUILD_DATE=${BUILD_TIME%%-*}"
+            echo "PROXY=${PROXY}"
+            date '+%Y-%m-%d %H:%M %Z'
+          } > files/root/BuildInfo.txt
+          echo "[ok] 编译时间标记已写入 /root/BuildInfo.txt"
+
+          make defconfig
+
+          required_device='CONFIG_TARGET_mediatek_filogic_DEVICE_oray_x1-pro=y'
+          if ! grep -Fqx "$required_device" .config; then
+            echo "ERROR: missing device target after defconfig: $required_device" >&2
+            exit 1
+          fi
+
+          make download -j"$NPROC"
+
+          if [ "${{ inputs.verbose }}" = "true" ]; then
+            make -j1 V=s
+          elif ! make -j"$NPROC"; then
+            echo "Parallel build failed; retrying with one job"
+            make -j1 V=s
+          fi
+
+          mapfile -t SYSUPGRADES < <(find bin/targets -type f \
+            -name '*oray_x1-pro*sysupgrade.bin' -print)
+          if [ "${#SYSUPGRADES[@]}" -ne 1 ]; then
+            echo "ERROR: expected exactly one X1 Pro sysupgrade.bin, found ${#SYSUPGRADES[@]}" >&2
+            find bin/targets -type f -name '*sysupgrade*' -print
+            exit 1
+          fi
+          SYSUPGRADE="${SYSUPGRADES[0]}"
+
+          EXPECTED_BOARD='oray_x1pro'
+          EXPECTED_DIR="sysupgrade-$EXPECTED_BOARD"
+          TAR_CONTENTS="$RUNNER_TEMP/x1pro-sysupgrade-contents.txt"
+          tar -tf "$SYSUPGRADE" > "$TAR_CONTENTS"
+          for member in CONTROL kernel root; do
+            member_count=$(grep -Fxc "$EXPECTED_DIR/$member" "$TAR_CONTENTS" || true)
+            if [ "$member_count" -ne 1 ]; then
+              echo "ERROR: expected exactly one $EXPECTED_DIR/$member, found $member_count" >&2
+              cat "$TAR_CONTENTS"
+              exit 1
+            fi
+          done
+          if [ "$(tar -xOf "$SYSUPGRADE" "$EXPECTED_DIR/CONTROL")" != "BOARD=$EXPECTED_BOARD" ]; then
+            echo "ERROR: sysupgrade CONTROL contains an unexpected board name" >&2
+            exit 1
+          fi
+
+          KERNEL_IMAGE="$RUNNER_TEMP/x1pro-kernel.itb"
+          ROOTFS_IMAGE="$RUNNER_TEMP/x1pro-root.squashfs"
+          tar -xOf "$SYSUPGRADE" "$EXPECTED_DIR/kernel" > "$KERNEL_IMAGE"
+          tar -xOf "$SYSUPGRADE" "$EXPECTED_DIR/root" > "$ROOTFS_IMAGE"
+          for image in "$KERNEL_IMAGE" "$ROOTFS_IMAGE"; do
+            if [ ! -s "$image" ]; then
+              echo "ERROR: sysupgrade contains an empty image: $image" >&2
+              exit 1
+            fi
+          done
+
+          python3 - "$KERNEL_IMAGE" "$ROOTFS_IMAGE" <<'PY'
+          import sys
+
+          expected_magic = (
+              (sys.argv[1], bytes.fromhex("d00dfeed"), "FIT kernel"),
+              (sys.argv[2], b"hsqs", "SquashFS root"),
+          )
+          for image_path, expected, description in expected_magic:
+              with open(image_path, "rb") as image_file:
+                  actual = image_file.read(4)
+              if actual != expected:
+                  raise SystemExit(
+                      f"ERROR: {description} has invalid magic: {actual.hex()}"
+                  )
+          PY
+
+          FIT_INFO="$RUNNER_TEMP/x1pro-kernel-fit.txt"
+          SQUASHFS_INFO="$RUNNER_TEMP/x1pro-root-squashfs.txt"
+          ROOTFS_EXTRACT_DIR="$RUNNER_TEMP/x1pro-rootfs-verify"
+          if ! ./staging_dir/host/bin/mkimage -l "$KERNEL_IMAGE" > "$FIT_INFO" 2>&1; then
+            echo "ERROR: kernel is not a valid FIT image" >&2
+            cat "$FIT_INFO" >&2
+            exit 1
+          fi
+          if ! ./staging_dir/host/bin/unsquashfs4 -s "$ROOTFS_IMAGE" > "$SQUASHFS_INFO" 2>&1; then
+            echo "ERROR: root is not a valid SquashFS image" >&2
+            cat "$SQUASHFS_INFO" >&2
+            exit 1
+          fi
+          if ! ./staging_dir/host/bin/unsquashfs4 -no-progress -no-exit-code \
+               -d "$ROOTFS_EXTRACT_DIR" "$ROOTFS_IMAGE" >> "$SQUASHFS_INFO" 2>&1; then
+            echo "ERROR: root SquashFS cannot be fully extracted" >&2
+            cat "$SQUASHFS_INFO" >&2
+            exit 1
+          fi
+          echo "Validated inner images: kernel=$(wc -c < "$KERNEL_IMAGE") bytes, root=$(wc -c < "$ROOTFS_IMAGE") bytes"
+
+          METADATA_JSON="$RUNNER_TEMP/x1pro-sysupgrade-metadata.json"
+          ./staging_dir/host/bin/fwtool -i "$METADATA_JSON" "$SYSUPGRADE"
+          python3 - "$METADATA_JSON" <<'PY'
+          import json
+          import sys
+
+          metadata_path = sys.argv[1]
+          with open(metadata_path, encoding="utf-8") as metadata_file:
+              metadata = json.load(metadata_file)
+
+          expected_device = "oray,x1pro"
+          supported_devices = metadata.get("supported_devices")
+          if not isinstance(supported_devices, list) or expected_device not in supported_devices:
+              raise SystemExit(
+                  f"ERROR: firmware metadata does not support {expected_device}: {supported_devices!r}"
+              )
+          PY
+
+          mapfile -t MANIFESTS < <(find "$(dirname "$SYSUPGRADE")" -maxdepth 1 -type f \
+            -name '*oray_x1-pro*.manifest' -print)
+          if [ "${#MANIFESTS[@]}" -ne 1 ]; then
+            echo "ERROR: expected exactly one X1 Pro manifest, found ${#MANIFESTS[@]}" >&2
+            exit 1
+          fi
+
+          case "$PROXY" in
+            homeproxy) main_pkg="luci-app-homeproxy" ;;
+            vpn)       main_pkg="kmod-ipt-ipsec" ;;
+            *)         main_pkg="" ;;
+          esac
+          if [ -n "$main_pkg" ]; then
+            if ! grep -Eq "^${main_pkg}[[:space:]]" "${MANIFESTS[0]}"; then
+              echo "ERROR: proxy package missing from firmware manifest: $main_pkg" >&2
+              exit 1
+            fi
+            echo "Verified proxy package in manifest: $main_pkg"
+          fi
+
+          mkdir -p "$GITHUB_WORKSPACE/firmware_collection"
+          FW_NAME="ImmortalWrt-X1Pro-${PROXY}-${BUILD_TIME}-sysupgrade.bin"
+          cp "$SYSUPGRADE" "$GITHUB_WORKSPACE/firmware_collection/$FW_NAME"
+          echo "Built: $FW_NAME ($(du -h "$SYSUPGRADE" | cut -f1))"
+          echo "status=success" >> "$GITHUB_OUTPUT"
+
+      - name: Show ccache statistics
+        if: always()
+        run: ccache -s
+
+      - name: Upload artifact
+        if: steps.compile.outputs.status == 'success'
+        uses: actions/upload-artifact@v7
+        with:
+          name: ImmortalWrt-X1Pro-${{ env.PROXY }}-${{ env.BUILD_TIME }}
+          path: firmware_collection/*.bin
+
+  release:
+    name: Release X1 Pro
+    needs: build
+    if: ${{ needs.build.result == 'success' && (github.event_name != 'workflow_dispatch' || inputs.release) }}
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    env:
+      BUILD_TIME: ${{ needs.build.outputs.build_time }}
+      BUILD_START_TS: ${{ needs.build.outputs.build_start_ts }}
+    steps:
+      - name: Download firmware artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: ImmortalWrt-X1Pro-${{ env.PROXY }}-${{ needs.build.outputs.build_time }}
+          path: firmware_collection
+
+      - name: Generate release notes
+        id: release
+        run: |
+          RELEASE_TAG="X1Pro-${BUILD_TIME}"
+          BUILD_END_TS=$(date +%s)
+          BUILD_END_TIME=$(date '+%Y-%m-%d %H:%M:%S %Z')
+          BUILD_START_TIME=$(date -d "@$BUILD_START_TS" '+%Y-%m-%d %H:%M:%S %Z')
+          BUILD_DURATION=$(( (BUILD_END_TS - BUILD_START_TS) / 60 ))
+
+          echo "release_tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+          {
+            printf '## ImmortalWrt X1 Pro (%s)\n\n' "$PROXY"
+            printf '**源码:** ImmortalWrt %s (%s)\n' "$SOURCE_REF" "$SOURCE_COMMIT"
+            printf '**设备:** Oray X1 Pro v1（U-Boot-mod 112 MiB UBI 布局）\n'
+            printf '**代理:** %s\n' "$PROXY"
+            printf '**格式:** sysupgrade TAR (.bin)\n'
+            printf '**构建开始:** %s\n' "$BUILD_START_TIME"
+            printf '**构建结束:** %s\n' "$BUILD_END_TIME"
+            printf '**构建耗时:** 约 %s 分钟\n' "$BUILD_DURATION"
+            if [ -n "$BUILD_NOTES" ]; then
+              printf '\n**备注:** %s\n' "$BUILD_NOTES"
+            fi
+            printf '\n> 此 Release 不包含 BL2/FIP，且不会写入 Factory 或 bdinfo。\n'
+          } > release.txt
+
+          cat release.txt
+
+      - name: Upload release
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
+        with:
+          tag_name: ${{ steps.release.outputs.release_tag }}
+          body_path: release.txt
+          files: firmware_collection/*.bin
+
+  cleanup:
+    name: Delete old workflow runs
+    needs: [build, release]
+    if: ${{ !cancelled() && needs.build.result != 'skipped' }}
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: write
+    steps:
+      - name: Delete old workflow runs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          CURRENT_RUN_ID: ${{ github.run_id }}
+        run: |
+          set -euo pipefail
+
+          KEEP_MINIMUM_RUNS=10
+          RUN_PAGES="$RUNNER_TEMP/current-workflow-run-pages.json"
+          IDS_TO_DELETE="$RUNNER_TEMP/current-workflow-runs-to-delete.txt"
+
+          WORKFLOW_ID=$(gh api "repos/$REPO/actions/runs/$CURRENT_RUN_ID" --jq '.workflow_id')
+          if ! [[ "$WORKFLOW_ID" =~ ^[0-9]+$ ]]; then
+            echo "ERROR: current run returned an invalid workflow_id: $WORKFLOW_ID" >&2
+            exit 1
+          fi
+
+          gh api "repos/$REPO/actions/workflows/$WORKFLOW_ID/runs?per_page=100" \
+            --paginate --slurp > "$RUN_PAGES"
+          jq -r --arg CURRENT "$CURRENT_RUN_ID" --argjson KEEP "$KEEP_MINIMUM_RUNS" '
+            [.[] | .workflow_runs[]
+              | select(.status == "completed")
+              | select((.id | tostring) != $CURRENT)]
+            | sort_by(.created_at, .id)
+            | reverse
+            | .[$KEEP:][]?.id
+          ' "$RUN_PAGES" > "$IDS_TO_DELETE"
+
+          COUNT=$(wc -l < "$IDS_TO_DELETE")
+          echo "Deleting $COUNT completed run(s); keeping the latest $KEEP_MINIMUM_RUNS"
+
+          failed=0
+          while read -r id; do
+            [ -n "$id" ] || continue
+            echo "Deleting run: $id"
+            if ! gh api --method DELETE "repos/$REPO/actions/runs/$id" --silent; then
+              failed=$((failed + 1))
+              echo "  Failed: $id" >&2
+            fi
+          done < "$IDS_TO_DELETE"
+
+          if [ "$failed" -ne 0 ]; then
+            echo "ERROR: $failed workflow run deletion(s) failed" >&2
+            exit 1
+          fi
