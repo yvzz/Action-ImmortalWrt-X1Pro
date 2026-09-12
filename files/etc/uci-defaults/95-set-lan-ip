@@ -1,0 +1,8 @@
+#!/bin/sh
+# uci-defaults: 默认 LAN IP 改为 10.3.2.1（源码默认 192.168.1.1）
+# 仅当 LAN IP 仍为出厂默认时才改，保留配置升级时不覆盖用户自定义 IP
+if [ "$(uci -q get network.lan.ipaddr)" = "192.168.1.1" ]; then
+	uci set network.lan.ipaddr='10.3.2.1'
+	uci commit network
+fi
+exit 0
