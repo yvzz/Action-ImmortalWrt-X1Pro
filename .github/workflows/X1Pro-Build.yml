@@ -1,0 +1,26 @@
+name: Build ImmortalWrt X1Pro
+
+permissions:
+  actions: write
+  contents: read
+
+on:
+  schedule:
+    - cron: '0 20 */3 * *'
+  repository_dispatch:
+    types: [X1Pro Update]
+  workflow_dispatch:
+
+jobs:
+  dispatch:
+    name: Dispatch v24.10 build
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Dispatch v24.10 (proxy=none)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh workflow run X1Pro-Build.yml --repo "${{ github.repository }}" --ref v24.10 \
+            -f proxy="none" \
+            -f release="true"
+          echo "dispatched v24.10 (proxy=none)"
