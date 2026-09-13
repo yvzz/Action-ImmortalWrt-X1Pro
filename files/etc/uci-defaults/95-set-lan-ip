@@ -1,8 +1,16 @@
 #!/bin/sh
 # uci-defaults: 默认 LAN IP 改为 10.3.2.1（源码默认 192.168.1.1）
 # 仅当 LAN IP 仍为出厂默认时才改，保留配置升级时不覆盖用户自定义 IP
-if [ "$(uci -q get network.lan.ipaddr)" = "192.168.1.1" ]; then
-	uci set network.lan.ipaddr='10.3.2.1'
-	uci commit network
-fi
+#
+# 注意：/bin/config_generate 用 add_list 写入 '192.168.1.1/24'（带 CIDR 前缀，list 类型）
+# 故：1) 判断须匹配带前缀值；2) 改写须先 delete 再 add_list（uci set 对 list 行为异常）
+cur=$(uci -q get network.lan.ipaddr)
+case "$cur" in
+	192.168.1.1/24|192.168.1.1)
+		uci -q delete network.lan.ipaddr
+		uci -q add_list network.lan.ipaddr='10.3.2.1/24'
+		uci -q set network.lan.netmask='255.255.255.0'
+		uci commit network
+		;;
+esac
 exit 0
