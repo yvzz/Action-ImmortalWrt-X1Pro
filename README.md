@@ -1,4 +1,4 @@
-# Action-ImmortalWrt-X1Pro
+# Action-Oray-X1Pro
 
 <div align=center>    
 <img src="x1pro.png" height=200px align="center">    
