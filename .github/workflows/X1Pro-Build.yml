@@ -410,7 +410,7 @@ jobs:
           echo "status=success" >> $GITHUB_OUTPUT
 
       - name: Upload to Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         if: steps.release.outputs.status == 'success'
         with:
           tag_name: ${{ steps.release.outputs.release_tag }}
