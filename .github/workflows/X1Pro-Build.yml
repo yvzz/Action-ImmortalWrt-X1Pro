@@ -51,7 +51,7 @@ on:
         description: '发布到 Release'
         required: false
         type: boolean
-        default: true
+        default: false
 
 env:
   CCACHE_DIR: /workdir/.ccache
