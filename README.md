@@ -1,4 +1,4 @@
-# Oray X1 Pro ImmortalWrt HomeProxy 固件
+# Oray X1 Pro ImmortalWrt 固件
 
 本仓库为 Oray X1 Pro v1 构建单用途 HomeProxy 固件。源码固定为官方
 [ImmortalWrt `v25.12.1`](https://github.com/immortalwrt/immortalwrt/releases/tag/v25.12.1)
@@ -6,22 +6,9 @@
 
 ## 固件内容
 
-预装内容包括基础路由与 Wi-Fi、LuCI HTTPS 中文界面、HomeProxy、USB3 存储与
-自动挂载，以及 HomeProxy 使用的完整 sing-box、firewall4、dnsmasq-full、
-nftables TProxy 和 TUN/ip-full 依赖。
+预装内容包括基础路由与 Wi-Fi、LuCI HTTPS 中文界面、USB3 存储与自动挂载、USB网络共享，以及 HomeProxy 使用的完整 sing-box、firewall4、dnsmasq-full、nftables TProxy 和 TUN/ip-full 依赖。
 
-以下内容不再预装：Ruby、NPC、Bandix、Aurora 主题、OpenClash、PassWall、
-旧 iptables 代理组件、WireGuard、ttyd、UPnP、流量统计、
-Wi-Fi 定时和定时重启。相关旧配置和覆盖目录已删除，避免后续构建误用。
-
-构建产物为：
-
-```text
-openwrt-mediatek-filogic-oray_x1-pro-squashfs-sysupgrade.bin
-```
-
-这与原仓库相同，是 OpenWrt sysupgrade TAR 格式；`.bin` 内部包含可启动的 FIT
-内核和独立的 SquashFS rootfs，并非把 `.itb` 直接改名。
+以下内容不再预装：Ruby、Bandix、OpenClash、PassWall、旧 iptables 代理组件、WireGuard、流量统计。相关旧配置和覆盖目录已删除，避免后续构建误用。
 
 ## X1 Pro 设备移植
 
@@ -90,7 +77,3 @@ TFTP 入口。
 `.bin`；不要用 `sysupgrade -F` 强刷，应从已经确认支持 TAR 的 U-Boot Web 入口
 完成一次布局切换。首次刷写前请备份全盘 NAND，并分别保存 BL2、FIP、Factory
 和 bdinfo；不要把 TR3000 的 Factory 写入 X1 Pro。
-
-## 来源
-
-- [ImmortalWrt](https://github.com/immortalwrt/immortalwrt)
