@@ -62,7 +62,7 @@ env:
   FEEDS_CONF: feeds.conf.default
   DIY_P1_SH: diy-part1.sh
   DIY_P2_SH: diy-part2.sh
-  UPLOAD_RELEASE: ${{ github.event.inputs.release || github.event.client_payload.release || 'true' }}
+  UPLOAD_RELEASE: ${{ (github.event_name == 'workflow_dispatch' && inputs.release == true) || (github.event_name == 'repository_dispatch' && github.event.client_payload.release == true) }}
   PROXY: ${{ github.event.inputs.proxy || 'none' }}
   BUILD_NOTES: ${{ github.event.inputs.notes || github.event.client_payload.notes || '' }}
   TZ: Asia/Shanghai
