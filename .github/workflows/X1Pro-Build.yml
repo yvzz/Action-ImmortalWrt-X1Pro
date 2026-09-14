@@ -433,7 +433,7 @@ jobs:
           fi
 
           mkdir -p "$GITHUB_WORKSPACE/firmware_collection"
-          FW_NAME="ImmortalWrt-X1Pro-${PROXY}-${BUILD_TIME}-sysupgrade.bin"
+          FW_NAME="X1Pro-2512-${PROXY}-${BUILD_TIME}-sysupgrade.bin"
           cp "$SYSUPGRADE" "$GITHUB_WORKSPACE/firmware_collection/$FW_NAME"
           echo "Built: $FW_NAME ($(du -h "$SYSUPGRADE" | cut -f1))"
           echo "status=success" >> "$GITHUB_OUTPUT"
@@ -446,7 +446,7 @@ jobs:
         if: steps.compile.outputs.status == 'success'
         uses: actions/upload-artifact@v7
         with:
-          name: ImmortalWrt-X1Pro-${{ env.PROXY }}-${{ env.BUILD_TIME }}
+          name: X1Pro-2512-${{ env.PROXY }}-${{ env.BUILD_TIME }}
           path: firmware_collection/*.bin
 
   release:
@@ -463,7 +463,7 @@ jobs:
       - name: Download firmware artifact
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
-          name: ImmortalWrt-X1Pro-${{ env.PROXY }}-${{ needs.build.outputs.build_time }}
+          name: X1Pro-2512-${{ env.PROXY }}-${{ needs.build.outputs.build_time }}
           path: firmware_collection
 
       - name: Generate release notes
