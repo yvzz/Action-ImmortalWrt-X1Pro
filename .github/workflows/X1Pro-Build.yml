@@ -494,7 +494,7 @@ jobs:
           cat release.txt
 
       - name: Upload release
-        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ steps.release.outputs.release_tag }}
           body_path: release.txt
