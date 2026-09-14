@@ -324,8 +324,8 @@ jobs:
             exit 1
           fi
           echo "Built: $SYSUPGRADE ($(du -h "$SYSUPGRADE" | cut -f1))"
-          # 文件名带日期时间：ImmortalWrt-X1Pro-none-20260814-0752-sysupgrade.bin
-          FW_NAME="ImmortalWrt-X1Pro-${PROXY}-${BUILD_TIME}-sysupgrade.bin"
+          # 文件名带日期时间：X1Pro-2410-none-20260814-0752-sysupgrade.bin
+          FW_NAME="X1Pro-2410-${PROXY}-${BUILD_TIME}-sysupgrade.bin"
           cp "$SYSUPGRADE" "$GITHUB_WORKSPACE/firmware_collection/${FW_NAME}"
 
           echo "Compilation successful"
@@ -355,7 +355,7 @@ jobs:
         uses: actions/upload-artifact@v7
         if: steps.compile.outputs.status == 'success'
         with:
-          name: ImmortalWrt-X1Pro-${{ env.PROXY }}-${{ env.BUILD_TIME }}
+          name: X1Pro-2410-${{ env.PROXY }}-${{ env.BUILD_TIME }}
           path: firmware_collection/*.bin
 
       # ── Release ──
